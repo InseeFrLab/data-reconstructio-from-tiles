@@ -1,7 +1,8 @@
 import os
-import requests
 import zipfile
+
 import py7zr
+import requests
 
 # URL du fichier à télécharger
 url = "https://www.insee.fr/fr/statistiques/fichier/7655475/Filosofi2019_carreaux_200m_gpkg.zip"
@@ -29,7 +30,7 @@ os.remove(zip_path)
 seven_zip_path = os.path.join(data_dir, "Filosofi2019_carreaux_200m_gpkg.7z")
 
 # Dézipper le fichier 7z
-with py7zr.SevenZipFile(seven_zip_path, mode='r') as z:
+with py7zr.SevenZipFile(seven_zip_path, mode="r") as z:
     z.extractall(path=data_dir)
 
 # Supprimer le fichier 7z après extraction

@@ -1,5 +1,6 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 
 def generer_table_individus(carreaux, id, ind, men, moins18, plus18):
     """
@@ -23,10 +24,10 @@ def generer_table_individus(carreaux, id, ind, men, moins18, plus18):
     # Vérification des contraintes
     if not all(carreaux[moins18] + carreaux[plus18] == carreaux[ind]):
         raise ValueError("Le total des individus (moins18 + plus18) ne correspond pas à la colonne ind.")
-    
+
     if not all(carreaux[men] <= carreaux[ind]):
         raise ValueError("Le nb d'individus n'est pas systématiquement supérieur au nb de ménages")
-    
+
     # Liste pour stocker les données individuelles
     individus_data = []
 
@@ -41,7 +42,7 @@ def generer_table_individus(carreaux, id, ind, men, moins18, plus18):
 
         # Générer les identifiants des ménages
         menage_ids = np.repeat(np.arange(1, num_menages + 1), num_individus // num_menages)
-        
+
         # Compléter si le nombre d'individus n'est pas divisible par le nombre de ménages
         remaining = num_individus % num_menages
         if remaining > 0:
@@ -52,20 +53,22 @@ def generer_table_individus(carreaux, id, ind, men, moins18, plus18):
 
         # Créer les indicateurs adultes (<18 ou >=18)
         adultes_flags = np.concatenate([np.zeros(num_moins18, dtype=bool), np.ones(num_plus18, dtype=bool)])
-        
+
         # Mélanger les individus aléatoirement tout en respectant leur statut d'âge
         np.random.shuffle(adultes_flags)
 
         # Ajouter les données dans la liste finale
         for i in range(num_individus):
-            individus_data.append({
-                "ID": f"{carreau_id}_{i+1}",  # Identifiant unique de l'individu
-                "IDMEN": f"{carreau_id}_{menage_ids[i]}",  # Identifiant du ménage
-                "ADULTE": adultes_flags[i],  # Booléen adulte ou non
-                id: carreau_id  # Identifiant du carreau
-            })
+            individus_data.append(
+                {
+                    "ID": f"{carreau_id}_{i+1}",  # Identifiant unique de l'individu
+                    "IDMEN": f"{carreau_id}_{menage_ids[i]}",  # Identifiant du ménage
+                    "ADULTE": adultes_flags[i],  # Booléen adulte ou non
+                    id: carreau_id,  # Identifiant du carreau
+                }
+            )
 
     # Convertir en DataFrame final
     individus_df = pd.DataFrame(individus_data)
-    
+
     return individus_df
