@@ -1,39 +1,49 @@
-import os
+import logging
 import zipfile
+from pathlib import Path
 
 import py7zr
 import requests
 
-# URL du fichier à télécharger
-url = "https://www.insee.fr/fr/statistiques/fichier/7655475/Filosofi2019_carreaux_200m_gpkg.zip"
-# Répertoire pour enregistrer le fichier téléchargé
-data_dir = "data"
-# Chemin pour enregistrer le fichier zip téléchargé
-zip_path = os.path.join(data_dir, "carreaux_200m.7z")
+from .utils import DATA_DIR
 
-# Créer le répertoire data s'il n'existe pas
-os.makedirs(data_dir, exist_ok=True)
+# URL par défaut du fichier à télécharger
+FILO_DEFAULT_URL: str = "https://www.insee.fr/fr/statistiques/fichier/7655475/Filosofi2019_carreaux_200m_gpkg.zip"
 
-# Télécharger le fichier
-response = requests.get(url)
-with open(zip_path, "wb") as file:
-    file.write(response.content)
 
-# Dézipper le fichier
-with zipfile.ZipFile(zip_path, "r") as zip_ref:
-    zip_ref.extractall(data_dir)
+def download_extract_FILO(url: str = FILO_DEFAULT_URL, dataDir: Path = DATA_DIR) -> None:
+    logging.info("Downloading FILO resources")
 
-# Supprimer le fichier zip après extraction
-os.remove(zip_path)
+    if not dataDir.exists():
+        logging.info("Creating data folder")
+        dataDir.mkdir(exist_ok=True)
 
-# Chemin pour enregistrer le fichier 7z téléchargé
-seven_zip_path = os.path.join(data_dir, "Filosofi2019_carreaux_200m_gpkg.7z")
+    # Chemin pour enregistrer le fichier zip téléchargé
+    zip_path: Path = dataDir / "carreaux_200m.7z"
+    # Chemin pour enregistrer le fichier 7z téléchargé
+    seven_zip_path = dataDir / "Filosofi2019_carreaux_200m_gpkg.7z"
 
-# Dézipper le fichier 7z
-with py7zr.SevenZipFile(seven_zip_path, mode="r") as z:
-    z.extractall(path=data_dir)
+    logging.info(f"Downloading data file from {url}")
+    response = requests.get(url)
+    with open(zip_path, "wb") as file:
+        file.write(response.content)
 
-# Supprimer le fichier 7z après extraction
-os.remove(seven_zip_path)
+    logging.info("Extracting from zip file")
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(dataDir)
 
-print("Téléchargement et extraction terminés.")
+    logging.info("Removing zip file")
+    zip_path.unlink()
+
+    logging.info("Extracting from 7z file")
+    with py7zr.SevenZipFile(seven_zip_path, mode="r") as z:
+        z.extractall(path=dataDir)
+
+    logging.info("Removing 7z file")
+    seven_zip_path.unlink()
+
+    logging.info("Download and extraction done.")
+
+
+if __name__ == "__main__":
+    download_extract_FILO()
