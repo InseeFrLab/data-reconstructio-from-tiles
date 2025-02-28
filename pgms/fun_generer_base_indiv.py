@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 
 
-def generer_table_individus(carreaux, id, ind, men, moins18, plus18):
+def generer_table_individus(
+    carreaux: pd.DataFrame, id: str, ind: str, men: str, moins18: str, plus18: str
+) -> pd.DataFrame:
     """
     Génère une table individuelle à partir d'une table carroyée.
 

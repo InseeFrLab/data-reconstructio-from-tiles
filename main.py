@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pgms.fun_generer_base_indiv import generer_table_individus
+from pgms import generer_table_individus
 
 
 def main():
@@ -100,7 +100,7 @@ def main():
     print(individus_table2.head())
 
     # Create a GeoDataFrame from the individuals table
-    geometry = gpd.points_from_xy(individus_table2["X_men"], individus_table2["Y_men"])
+    geometry = gpd.points_from_xy(individus_table2["X_men"], individus_table2["Y_men"], crs="EPSG:2975")
     individus_gdf = gpd.GeoDataFrame(individus_table2, geometry=geometry)
 
     # Plot the density maps side by side
