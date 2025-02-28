@@ -1,14 +1,14 @@
 #!/bin/sh
 
-# You may use this init script to setup an Onyxia service
-# https://datalab.sspcloud.fr/launcher/ide/vscode-python?resources.requests.cpu=%C2%AB1000m%C2%BB&resources.requests.memory=%C2%AB32Gi%C2%BB&resources.limits.memory=%C2%AB100Gi%C2%BB&persistence.size=%C2%AB50Gi%C2%BB&git.repository=%C2%ABhttps%3A%2F%2Fgithub.com%2Fjulienjamme%2Fdonnees-synth-geo.git%C2%BB
+# You may use this initialization script to easily setup an Onyxia "vscode-python" service
+# https://datalab.sspcloud.fr/launcher/ide/vscode-python?name=vscode-python&init.personalInit=%C2%ABhttps%3A%2F%2Fraw.githubusercontent.com%2FGaspi%2Fdonnees-synth-geo%2Frefs%2Fheads%2Fmain%2Finit-scripts%2Fvscode-python.sh%C2%BB
 
 sudo apt update -y
 sudo apt install tree -y
 
 # Clone project
 cd ~/work/
-git clone https://github.com/julienjamme/donnees-synth-geo.git
+git clone https://github.com/Gaspi/donnees-synth-geo.git
 cd donnees-synth-geo
 
 # Install requirements and run linting on project
