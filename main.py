@@ -20,11 +20,11 @@ def main():
     plt.title("Carte de la population par carreaux")
     plt.show()
 
-    # Coordonnées des points NE et SO
-    carr200["YNE"] = carr200["idcar_200m"].str.extract(r"200mN(.*?)E").astype(int)
-    carr200["XNE"] = carr200["idcar_200m"].str.extract(r".*E(.*)").astype(int)
-    carr200["YSO"] = carr200["YNE"] - 200
-    carr200["XSO"] = carr200["XNE"] - 200
+    # Coordonnées des points NE et SO - le point de référence est le point en bas à gauche
+    carr200["YSO"] = carr200["idcar_200m"].str.extract(r"200mN(.*?)E").astype(int)
+    carr200["XSO"] = carr200["idcar_200m"].str.extract(r".*E(.*)").astype(int)
+    carr200["YNE"] = carr200["YSO"] + 200
+    carr200["XNE"] = carr200["XSO"] + 200
 
     print(carr200[["idcar_200m", "YNE", "XNE", "YSO", "XSO"]].head(10))
 
