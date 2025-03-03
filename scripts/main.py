@@ -47,15 +47,22 @@ def main(file_path=default_file_path):
 
     carr200["indi"] = round_alea(carr200["ind"])
     carr200["meni"] = round_alea(carr200["men"])
-    carr200["meni"] = carr200.meni.where(carr200.meni <= carr200.indi, carr200.meni - 1)
-    carr200["meni"] = carr200.meni.where(carr200.men > 1, 1)
-    carr200["moins18i"] = round_alea(carr200.ind_0_3 + carr200.ind_4_5 + carr200.ind_6_10 + carr200.ind_11_17)
-    carr200["moins18i"] = carr200.moins18i.where(carr200.moins18i <= carr200.indi, carr200.moins18i - 1)
-    carr200["plus18i"] = carr200.indi - carr200.moins18i
-
+    carr200["plus18i"] = round_alea(
+        carr200.ind_18_24
+        + carr200.ind_25_39
+        + carr200.ind_40_54
+        + carr200.ind_55_64
+        + carr200.ind_65_79
+        + carr200.ind_80p
+    )
+    carr200["plus18i"] = carr200.plus18i.where(carr200.plus18i > 0, 1)
+    carr200["plus18i"] = carr200.plus18i.where(carr200.plus18i <= carr200.indi, carr200.plus18i - 1)
+    carr200["moins18i"] = carr200.indi - carr200.plus18i
+    # carr200["meni"] = carr200.meni.where(carr200.meni <= carr200.plus18i, carr200.meni - 1)
+    carr200["meni"] = carr200.meni.where(carr200.meni > 1, 1)
     # print(carr200[['ind', 'indi', 'meni']])
     # sum(carr200['meni'] == 0)
-    print(f"Incohérence: {str(sum(carr200.meni > carr200.indi))}")
+    print(f"Incohérence: {str(sum(carr200.meni > carr200.plus18i))}")
     print(f"Différence entre les pop: {str(carr200['indi'].sum() - carr200['ind'].sum())}")
     print(f"Différence entre les men: {str(carr200['meni'].sum() - carr200['men'].sum())}")
 

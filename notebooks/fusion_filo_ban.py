@@ -21,7 +21,7 @@ np.random.seed(1703)
 BAN_974_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-974.csv.gz"
 
 # ETAPE 1: base individuelle à partir des carreaux
-file_path = "../data/carreaux_200m_reun.gpkg"
+#file_path = "../data//carreaux_200m_reun.gpkg"
 carr200 = gpd.read_file(file_path)
 
 # Coordonnées des points NE et SO - le point de référence est le point en bas à gauche
@@ -82,6 +82,16 @@ end_time = time.time()
 print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
 print(f"Nombre total de ménages à générer : {str(carr200['meni'].sum())}")
 print(f"Nombre total de ménages générés : {individus_table.IDMEN.nunique()}")
+
+# Test : il y a au moins un adulte dans chacun des ménages
+adultes_par_menages = individus_table.groupby(['IDMEN', 'ADULTE']).size().reset_index(name='n')
+adultes_par_menages['n_ind'] = adultes_par_menages.groupby('IDMEN')['n'].transform('sum')
+adultes_par_menages['part'] = adultes_par_menages.n/adultes_par_menages.n_ind
+menages_pbtiques = adultes_par_menages[
+    (adultes_par_menages['ADULTE'] == False) &
+    (adultes_par_menages['part'] >= 1)
+]
+menages_pbtiques.shape[0] == 0 # True attendu
 
 # fusion pour récupérer les coordonnées des carreaux
 individus_table = individus_table.merge(carr200[["idcar_200m", "XNE", "XSO", "YNE", "YSO"]])
