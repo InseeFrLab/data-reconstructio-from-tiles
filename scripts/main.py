@@ -5,17 +5,26 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pgms import generer_table_individus
-from pgms import intersect_ban_avec_carreaux
+from pgms import DATA_DIR, generer_table_individus, intersect_ban_avec_carreaux
+
+BAN_974_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-974.csv.gz"
+
+# ETAPE 1: base individuelle à partir des carreaux
+default_file_path = DATA_DIR / "carreaux_200m_reun.gpkg"
 
 
-def main():
+def round_alea(x: pd.Series):
+    xfl = np.floor(x)
+    xdec = x - xfl
+    xres = np.zeros(len(x))
+    for i in range(len(xres)):
+        xres[i] = xfl[i] + np.random.choice(np.array((0, 1)), 1, p=[1 - xdec[i], xdec[i]])
+    return xres.astype("int")
+
+
+def main(file_path=default_file_path):
     np.random.seed(1703)
 
-    BAN_974_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-974.csv.gz"
-    
-    # ETAPE 1: base individuelle à partir des carreaux
-    file_path = "data/carreaux_200m_reun.gpkg"
     carr200 = gpd.read_file(file_path)
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
@@ -35,14 +44,6 @@ def main():
     # vérifier que les variables sont bien des entiers sinon arrondir aux entiers
     non_integer_ind_count = (carr200["ind"] - np.floor(carr200["ind"]) != 0).sum()
     print(f"Number of non integer individual count (should be 0): {non_integer_ind_count}")
-
-    def round_alea(x: np.array):
-        xfl = np.floor(x)
-        xdec = x - xfl
-        xres = np.zeros(len(x))
-        for i in range(len(xres)):
-            xres[i] = xfl[i] + np.random.choice(np.array((0, 1)), 1, p=[1 - xdec[i], xdec[i]])
-        return xres.astype("int")
 
     carr200["indi"] = round_alea(carr200["ind"])
     carr200["meni"] = round_alea(carr200["men"])

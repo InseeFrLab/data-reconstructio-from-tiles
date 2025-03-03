@@ -8,7 +8,7 @@ sudo apt install tree -y
 
 # Clone project
 cd ~/work/
-git clone https://github.com/Gaspi/donnees-synth-geo.git
+git clone https://github.com/JulienJamme/donnees-synth-geo.git
 cd donnees-synth-geo
 
 # Install project (requirements and main package)

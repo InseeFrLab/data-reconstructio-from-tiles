@@ -1,14 +1,19 @@
 # donnees-synth-geo
 
+## Install the project
+```sh
+pip install -e .
+```
+
 ## To load the data
 ```sh
-python pgms/FILO_carreaux.py
-python pgms/BAN_tele_dezip.py
+python scripts/download_FILO.py
+python scripts/download_BAN.py
 ```
 
 ## To run the database generation
 ```sh
-python main.py
+python scripts/main.py
 ```
 
 ## Get started on SSPCloud
