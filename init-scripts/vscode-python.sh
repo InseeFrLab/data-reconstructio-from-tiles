@@ -11,8 +11,8 @@ cd ~/work/
 git clone https://github.com/Gaspi/donnees-synth-geo.git
 cd donnees-synth-geo
 
-# Install requirements
-pip install -r requirements.txt
+# Install project (requirements and main package)
+pip install -e .
 
 # Replace default flake8 linter with project-preconfigured ruff
 code-server --uninstall-extension ms-python.flake8
@@ -29,5 +29,5 @@ pre-commit install
 pre-commit run --all-files
 
 # Download data
-python pgms/FILO_carreaux.py
-python pgms/BAN_tele_dezip.py
+python -m pgms.FILO_carreaux
+python -m pgms.BAN_tele_dezip

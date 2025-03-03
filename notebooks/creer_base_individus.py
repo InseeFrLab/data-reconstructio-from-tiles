@@ -8,10 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from pgms.fun_generer_base_indiv import generer_table_individus
-from pgms.utils import DATA_DIR
+from pgms import DATA_DIR, generer_table_individus
 
 file_path = DATA_DIR / "carreaux_200m_reun.gpkg"
 
@@ -78,6 +75,9 @@ print(f"Différence entre les men: {str(carr200['meni'].sum() - carr200['men'].s
 BAN_974_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-974.csv.gz"
 ban = pd.read_csv(BAN_974_URL, sep=";")
 
+
+# %%
+fullban = pd.read_csv(DATA_DIR / "adresses.csv", sep=";")
 
 # %%
 ban["XNE"] = 200 * np.floor(ban.x / 200).astype(int)

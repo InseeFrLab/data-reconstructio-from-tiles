@@ -1,3 +1,23 @@
+[project]
+name = "DummyPopDatabase"
+version = "0.0.1"
+description = "Dummy population database"
+readme = "README.md"
+authors = [
+    { name = "Julien Jamme", email = "julien.jamme@insee.fr" },
+    { name = "Gaspard Ferey", email = "gaspard.ferey@insee.fr" }
+]
+license = { text = "MIT" }
+dependencies = [
+    "py7zr",
+    "types-requests",
+    "pandas-stubs",
+    "types-geopandas"
+]
+
+[tool.setuptools]
+packages = ["pgms"]
+
 [tool.ruff]
 line-length = 120
 indent-width = 4
