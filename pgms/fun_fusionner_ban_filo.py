@@ -25,16 +25,12 @@ def intersect_ban_avec_carreaux(
         GeoDataFrame: Un GeoDataFrame contenant les points situés dans les polygones,
                       avec les colonnes x, y, geometry (points) et la colonne identifiant les polygones.
     """
-    points_gdf = gpd.GeoDataFrame(
+    points_gdf: gpd.GeoDataFrame = gpd.GeoDataFrame(
         ban[["x", "y"]], geometry=gpd.points_from_xy(ban["x"], ban["y"]), crs=polygons_gdf.crs
     )
 
     # Effectuer une jointure spatiale pour conserver uniquement les points dans les polygones
-    result = gpd.sjoin(
-        points_gdf[["x", "y", "geometry"]], polygons_gdf[[polygon_id_col, "geometry"]], how="inner", predicate="within"
-    )
+    result = gpd.sjoin(points_gdf, polygons_gdf, how="inner", predicate="within")
 
     # Conserver uniquement les colonnes nécessaires
-    result = result[["x", "y", polygon_id_col, "geometry"]]
-
-    return result
+    return result[["x", "y", polygon_id_col, "geometry"]]
