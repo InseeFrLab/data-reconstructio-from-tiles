@@ -14,7 +14,6 @@ file_path = DATA_DIR / "carreaux_200m_reun.gpkg"
 
 np.random.seed(1703)
 
-
 def round_alea(x: pd.Series):
     xfl = np.floor(x).astype("int")
     return xfl + (np.random.rand(x.size) < x - xfl)
@@ -31,84 +30,77 @@ plt.title("Carte de la population par carreaux")
 
 
 # %%
-# Coordonnées des points NE et SO
-carr200["YNE"] = carr200["idcar_200m"].str.extract(r"200mN(.*?)E").astype(int)
-carr200["XNE"] = carr200["idcar_200m"].str.extract(r".*E(.*)").astype(int)
-carr200["YSO"] = carr200["YNE"] - 200
-carr200["XSO"] = carr200["XNE"] - 200
-
-carr200[["idcar_200m", "YNE", "XNE", "YSO", "XSO", "ind"]]
-
-
-# %%
-(carr200[["ind"]] - np.floor(carr200[["ind"]])).hist()
-# NOTE : La pop de plusieurs carreaux a un partie décimale égale à 0.5
-# (Points de population qui tombe à la frontière peut-être...)
-
-# Variables d'intérêt
-# vérifier que les variables sont bien des entiers sinon arrondir aux entiers
-non_integer_ind_count = (carr200["ind"] - np.floor(carr200["ind"]) != 0).sum()
-print(f"Number of non integer individual count (should be 0): {non_integer_ind_count}")
-
-
-# %%
-carr200[["ind"]].apply(np.floor).hist(bins=50)
-
-
-# %%
 carr200["indi"] = round_alea(carr200["ind"])
 carr200["meni"] = np.maximum(1, np.minimum(carr200.indi, round_alea(carr200["men"])))
 carr200["moins18i"] = np.minimum(
-    round_alea(carr200.ind_0_3 + carr200.ind_4_5 + carr200.ind_6_10 + carr200.ind_11_17), carr200.indi
+    round_alea(carr200.ind_0_3 + carr200.ind_4_5 + carr200.ind_6_10 + carr200.ind_11_17),
+    carr200.indi
 )
 carr200["plus18i"] = carr200.indi - carr200.moins18i
 
-# print(carr200[['ind', 'indi', 'meni']])
-sum(carr200["meni"] == 0)
-print(f"Incohérence: {str(sum(carr200['meni'] > carr200.indi))}")
-print(f"Différence entre les pop: {str(carr200['indi'].sum() - carr200['ind'].sum())}")
-print(f"Différence entre les men: {str(carr200['meni'].sum() - carr200['men'].sum())}")
+def pp_difference(a,b):
+    suma = a.sum()
+    sumb = b.sum()
+    return f"{suma - sumb} ({(suma - sumb)/max(suma,sumb):.2%})"
+def pp_nb_difference(a,b):
+    nbdiff = (a != b).sum()
+    return f"{nbdiff} ({nbdiff/len(a):.2%})"
+print(f"Population difference:", pp_difference(carr200['indi'], carr200['ind']))
+print(f"Tiles with pop diff:", pp_nb_difference(carr200['indi'], carr200['ind']))
+print(f"Housholds difference:", pp_difference(carr200['meni'], carr200['men']))
+print(f"Tiles with hh diff:", pp_nb_difference(carr200['meni'], carr200['men']))
 
 
 # %%
-
 BAN_974_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-974.csv.gz"
-ban = pd.read_csv(BAN_974_URL, sep=";")
+raw_ban = pd.read_csv(BAN_974_URL, sep=";", usecols=["x","y"])
+raw_ban["idcar_200m"] = \
+    "CRS2975RES200mN" + \
+    (200 * np.floor(raw_ban.y / 200).astype(int)).astype(str) + \
+    "E" + \
+    (200 * np.floor(raw_ban.x / 200).astype(int)).astype(str)
+
+# Shuffle addresses among each tiles
+ban = raw_ban.groupby('idcar_200m', group_keys=False).apply(lambda x: x.sample(frac=1)).reset_index(drop=True)
+del raw_ban
+# Precompute the number of addresses in each tile
+nb_addr = ban.groupby('idcar_200m').size().reset_index(name='addr')
+
+df = carr200.merge(nb_addr, on="idcar_200m", how="left").fillna(0)
 
 
 # %%
-fullban = pd.read_csv(DATA_DIR / "adresses.csv", sep=";")
+print(f"Total number of households: { df.meni.sum() }")
+print(f"Total number of addresses: { df.addr.sum() } ({ df.addr.sum() / df.meni.sum():.2%})")
+
+no_addr = (df.addr == 0) & (df.meni > 0)
+print(f"Tiles with >0 households but 0 address: { no_addr.sum() } ({ no_addr.sum() / len(df):.2%})")
+print(f"Number of households on these tiles: {  df.meni[no_addr].sum() } ({ df.meni[no_addr].sum() / df.meni.sum():.2%})")
+
+few_addr = df.addr.between(0, df.meni, inclusive='neither')
+print(f"Other tiles with strictly more households than addresses: { few_addr.sum() } ({ few_addr.sum() / len(carr200):.2%})")
+print(f"Number of extra households on these tiles:  { (df.meni[few_addr]-df.addr[few_addr]).sum() } ({ (df.meni[few_addr]-df.addr[few_addr]).sum() / df.meni.sum():.2%})")
+
+
+# %% Generate extra artificial addresses to complete BAN on empty tiles
+
+df_no_addr = df[no_addr]["idcar_200m"]
+extra_ban = pd.DataFrame({
+        "idcar_200m": df_no_addr,
+        "x": df_no_addr.str.extract(r"200mN(.*?)E").astype(int)[0] + pd.Series(np.random.rand(no_addr.sum())*200, index=df_no_addr.index),
+        "y": df_no_addr.str.extract(r".*E(.*)").astype(int)[0] + pd.Series(np.random.rand(no_addr.sum())*200, index=df_no_addr.index)
+    })
+
+ban = pd.concat([ban, extra_ban], ignore_index=True)
+ban["id_addr"] = ban.groupby('idcar_200m').cumcount()
 
 # %%
-ban["XNE"] = 200 * np.floor(ban.x / 200).astype(int)
-ban["YNE"] = 200 * np.floor(ban.y / 200).astype(int)
-ban["idcar_200m"] = ban.apply(lambda row: f"CRS2975RES200mN{row['YNE']}E{row['XNE']}", axis=1)
+# Create a households database by duplicating each line of the tiled df by its number of households
+households = df.loc[df.index.repeat(df.meni)]
+# We have: len(households) == df.meni.sum()
+households["id_addr"] = households.groupby('idcar_200m').cumcount() % households['addr']
 
 
-# %%
-# Perform an outer merge to identify common and unique values
-merged = ban.merge(carr200, on="idcar_200m", how="outer", indicator=True)
-
-# Count occurrences
-print(f"BAN adresses that do not fit in a tile: {(merged['_merge'] == 'left_only').sum()}")
-print(f"Tiles with not BAN adress: {(merged['_merge'] == 'right_only').sum()}")
-print(f"Adresses with a tile: {(merged['_merge'] == 'both').sum()}")
-
-ban[["idcar_200m", "id"]].groupby("idcar_200m").count()["id"].hist()
-
-
-# %%
-start_time = time.time()
-
-individus_table = generer_table_individus(
-    carreaux=carr200, id="idcar_200m", ind="indi", men="meni", moins18="moins18i", plus18="plus18i"
-)
-
-end_time = time.time()
-
-print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
-print(f"Nombre total d'individus générés : {len(individus_table)}")
-print(f"Nombre total de ménages générés : {len(individus_table)}")
 
 # %%
 # fusion pour récupérer les coordonnées des carreaux
