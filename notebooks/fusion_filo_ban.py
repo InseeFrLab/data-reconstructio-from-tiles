@@ -68,7 +68,8 @@ individus_table = generer_table_individus(
 end_time = time.time()
 
 print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
-print(f"Nombre total d'individus générés : {len(individus_table)}")
+print(f"Nombre total d'individus à générer : {str(carr200['indi'].sum())}")
+print(f"Nombre total d'individus générés : {individus_table.shape[0]}")
 
 start_time = time.time()
 
@@ -79,8 +80,8 @@ individus_table = generer_table_individus(
 end_time = time.time()
 
 print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
-print(f"Nombre total d'individus générés : {len(individus_table)}")
-print(f"Nombre total de ménages générés : {len(individus_table)}")
+print(f"Nombre total de ménages à générer : {str(carr200['meni'].sum())}")
+print(f"Nombre total de ménages générés : {individus_table.IDMEN.nunique()}")
 
 # fusion pour récupérer les coordonnées des carreaux
 individus_table = individus_table.merge(carr200[["idcar_200m", "XNE", "XSO", "YNE", "YSO"]])
