@@ -86,49 +86,41 @@ def main(file_path=default_file_path):
     individus_table = individus_table.merge(carr200[["idcar_200m", "XNE", "XSO", "YNE", "YSO"]])
     # individus_table.columns
 
-    menages_table = individus_table[["IDMEN", "idcar_200m", "XNE", "XSO", "YNE", "YSO"]].drop_duplicates(inplace=False)
+    # menages_table = individus_table[["IDMEN", "idcar_200m", "XNE", "XSO", "YNE", "YSO"]].drop_duplicates()
     # menages_table.columns
     # menages_table.shape[0] == carr200["meni"].sum()
-    
+
     ban = pd.read_csv(BAN_974_URL, sep=";")
-    
+
     start_time = time.time()
 
-    ban_carr = intersect_ban_avec_carreaux(
-        ban, 
-        carr200, 
-        "idcar_200m"
-    )
-    ban_carr = ban_carr.merge(
-        carr200[['idcar_200m','meni']],
-        right_on='idcar_200m', left_on='idcar_200m'
-    )
+    ban_carr = intersect_ban_avec_carreaux(ban, carr200, "idcar_200m")
+    ban_carr = ban_carr.merge(carr200[["idcar_200m", "meni"]], right_on="idcar_200m", left_on="idcar_200m")
     echantillon_points = (
-        ban_carr.groupby('idcar_200m')
-        .apply(lambda group: group.sample(n=group['meni'].iloc[0], replace=True, random_state=42))
+        ban_carr.groupby("idcar_200m")
+        .apply(lambda group: group.sample(n=group["meni"].iloc[0], replace=True, random_state=42))
         .reset_index(drop=True)
     )
 
     end_time = time.time()
 
     print(f"Temps de calcul pour la création des échantillons de points: {end_time - start_time:.2f} secondes")
-    
-    echantillon_points['IDMEN'] = (
-        echantillon_points['idcar_200m'].astype(str) + "_" + 
-        (echantillon_points.groupby('idcar_200m').cumcount()+1).astype(str)
+
+    echantillon_points["IDMEN"] = (
+        echantillon_points["idcar_200m"].astype(str)
+        + "_"
+        + (echantillon_points.groupby("idcar_200m").cumcount() + 1).astype(str)
     )
-    
+
     print(f"Ecart du nombre de ménages: {echantillon_points.shape[0] - sum(carr200.meni):.2f} secondes")
 
-    individus_table2 = individus_table[['idcar_200m','IDMEN','ID','ADULTE']].merge(
-        echantillon_points,
-        right_on=['idcar_200m','IDMEN'], 
-        left_on=['idcar_200m','IDMEN']
+    individus_table2 = individus_table[["idcar_200m", "IDMEN", "ID", "ADULTE"]].merge(
+        echantillon_points, right_on=["idcar_200m", "IDMEN"], left_on=["idcar_200m", "IDMEN"]
     )
 
     pd.set_option("display.max_columns", 8)
     print(individus_table2.head())
-    
+
     geometry = gpd.points_from_xy(individus_table2["x"], individus_table2["y"])
     individus_gdf = gpd.GeoDataFrame(individus_table2, geometry=geometry)
 
@@ -148,6 +140,7 @@ def main(file_path=default_file_path):
     # Export
     individus_table2.to_csv("data/individus_table2.csv", index=False)
     individus_gdf.to_file("data/individus_gdf.gpkg", driver="GPKG")
+
 
 if __name__ == "__main__":
     main()

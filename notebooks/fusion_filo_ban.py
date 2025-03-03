@@ -37,7 +37,7 @@ print(carr200[["idcar_200m", "YNE", "XNE", "YSO", "XSO"]].head(10))
 non_integer_ind_count = (carr200["ind"] - np.floor(carr200["ind"]) != 0).sum()
 print(f"Number of non integer individual count (should be 0): {non_integer_ind_count}")
 
-def round_alea(x: np.array):
+def round_alea(x: pd.Series):
     xfl = np.floor(x)
     xdec = x - xfl
     xres = np.zeros(len(x))
