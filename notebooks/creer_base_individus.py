@@ -57,11 +57,11 @@ carr200[["ind"]].apply(np.floor).hist(bins=50)
 
 # %%
 carr200["indi"] = round_alea(carr200["ind"])
-carr200["meni"] = np.maximum(1, np.minimum(carr200.indi, round_alea(carr200["men"])))
 carr200["moins18i"] = np.minimum(
     round_alea(carr200.ind_0_3 + carr200.ind_4_5 + carr200.ind_6_10 + carr200.ind_11_17), carr200.indi
 )
 carr200["plus18i"] = carr200.indi - carr200.moins18i
+carr200["meni"] = np.maximum(1, np.minimum(carr200.plus18i, round_alea(carr200["men"])))
 
 # print(carr200[['ind', 'indi', 'meni']])
 sum(carr200["meni"] == 0)
