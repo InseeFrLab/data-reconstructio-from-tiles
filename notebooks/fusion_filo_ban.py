@@ -94,8 +94,8 @@ menages_table = individus_table[["IDMEN", "idcar_200m", "XNE", "XSO", "YNE", "YS
 ban = pd.read_csv(BAN_974_URL, sep=";")
 
 ban_carr = intersect_ban_avec_carreaux(
-    ban, 
-    carr200, 
+    ban,
+    carr200,
     "idcar_200m"
 )
 ban_carr = ban_carr.merge(
@@ -109,7 +109,7 @@ echantillon_points = (
     .reset_index(drop=True)
 )
 echantillon_points['IDMEN'] = (
-    echantillon_points['idcar_200m'].astype(str) + "_" + 
+    echantillon_points['idcar_200m'].astype(str) + "_" +
     (echantillon_points.groupby('idcar_200m').cumcount()+1).astype(str)
 )
 # %%
@@ -125,7 +125,7 @@ echantillon_points.head(n=20)
 # %%
 individus_table2 = individus_table[['idcar_200m','IDMEN','ID','ADULTE']].merge(
     echantillon_points,
-    right_on=['idcar_200m','IDMEN'], 
+    right_on=['idcar_200m','IDMEN'],
     left_on=['idcar_200m','IDMEN']
 )
 # %%
