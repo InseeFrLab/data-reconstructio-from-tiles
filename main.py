@@ -6,11 +6,14 @@ import numpy as np
 import pandas as pd
 
 from pgms import generer_table_individus
+from pgms import intersect_ban_avec_carreaux
 
 
 def main():
     np.random.seed(1703)
 
+    BAN_974_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-974.csv.gz"
+    
     # ETAPE 1: base individuelle à partir des carreaux
     file_path = "data/carreaux_200m_reun.gpkg"
     carr200 = gpd.read_file(file_path)
@@ -63,7 +66,7 @@ def main():
 
     end_time = time.time()
 
-    print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
+    print(f"Temps de calcul pour la génération des individus : {end_time - start_time:.2f} secondes")
     print(f"Nombre total d'individus générés : {len(individus_table)}")
 
     start_time = time.time()
@@ -85,29 +88,54 @@ def main():
     menages_table = individus_table[["IDMEN", "idcar_200m", "XNE", "XSO", "YNE", "YSO"]].drop_duplicates(inplace=False)
     # menages_table.columns
     # menages_table.shape[0] == carr200["meni"].sum()
+    
+    ban = pd.read_csv(BAN_974_URL, sep=";")
+    
+    start_time = time.time()
 
-    # Tirage de coordonnées dans le carreau
-    menages_table["X_men"] = menages_table.apply(lambda row: np.random.randint(row["XSO"], row["XNE"] + 1), axis=1)
-    menages_table["Y_men"] = menages_table.apply(lambda row: np.random.randint(row["YSO"], row["YNE"] + 1), axis=1)
-
-    # Injection des coordonnées dans la table individuelle
-    individus_table2 = individus_table.merge(
-        menages_table[["IDMEN", "X_men", "Y_men"]], left_on="IDMEN", right_on="IDMEN"
+    ban_carr = intersect_ban_avec_carreaux(
+        ban, 
+        carr200, 
+        "idcar_200m"
     )
-    # individus_table2.columns
+    ban_carr = ban_carr.merge(
+        carr200[['idcar_200m','meni']],
+        right_on='idcar_200m', left_on='idcar_200m'
+    )
+    echantillon_points = (
+        ban_carr.groupby('idcar_200m')
+        .apply(lambda group: group.sample(n=group['meni'].iloc[0], replace=True, random_state=42))
+        .reset_index(drop=True)
+    )
+
+    end_time = time.time()
+
+    print(f"Temps de calcul pour la création des échantillons de points: {end_time - start_time:.2f} secondes")
+    
+    echantillon_points['IDMEN'] = (
+        echantillon_points['idcar_200m'].astype(str) + "_" + 
+        (echantillon_points.groupby('idcar_200m').cumcount()+1).astype(str)
+    )
+    
+    print(f"Ecart du nombre de ménages: {echantillon_points.shape[0] - sum(carr200.meni):.2f} secondes")
+
+    individus_table2 = individus_table[['idcar_200m','IDMEN','ID','ADULTE']].merge(
+        echantillon_points,
+        right_on=['idcar_200m','IDMEN'], 
+        left_on=['idcar_200m','IDMEN']
+    )
 
     pd.set_option("display.max_columns", 8)
     print(individus_table2.head())
-
-    # Create a GeoDataFrame from the individuals table
-    geometry = gpd.points_from_xy(individus_table2["X_men"], individus_table2["Y_men"], crs="EPSG:2975")
+    
+    geometry = gpd.points_from_xy(individus_table2["x"], individus_table2["y"])
     individus_gdf = gpd.GeoDataFrame(individus_table2, geometry=geometry)
 
     # Plot the density maps side by side
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
 
     # Plot the density map from the individuals table
-    individus_gdf.plot(ax=ax1, markersize=1, alpha=0.5)
+    individus_gdf.plot(ax=ax1, markersize=0.2, alpha=0.5)
     ax1.set_title("Carte de densité de population (individus)")
 
     # Plot the density map from the carr200 table without legend
@@ -119,7 +147,6 @@ def main():
     # Export
     individus_table2.to_csv("data/individus_table2.csv", index=False)
     individus_gdf.to_file("data/individus_gdf.gpkg", driver="GPKG")
-
 
 if __name__ == "__main__":
     main()
