@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pgms import DATA_DIR, generer_table_individus
+from popdbgen import DATA_DIR, generer_table_individus
 
 file_path = DATA_DIR / "carreaux_200m_reun.gpkg"
 
@@ -87,8 +87,8 @@ print(f"Number of extra households on these tiles:  { (df.meni[few_addr]-df.addr
 df_no_addr = df[no_addr]["idcar_200m"]
 extra_ban = pd.DataFrame({
         "idcar_200m": df_no_addr,
-        "x": df_no_addr.str.extract(r"200mN(.*?)E").astype(int)[0] + pd.Series(np.random.rand(no_addr.sum())*200, index=df_no_addr.index),
-        "y": df_no_addr.str.extract(r".*E(.*)").astype(int)[0] + pd.Series(np.random.rand(no_addr.sum())*200, index=df_no_addr.index)
+        "x": df_no_addr.str.extract(r"200mN(.*?)E").astype(int)[0] + 100, # pd.Series(np.random.rand(no_addr.sum())*200, index=df_no_addr.index),
+        "y": df_no_addr.str.extract(r".*E(.*)").astype(int)[0] + 100 # pd.Series(np.random.rand(no_addr.sum())*200, index=df_no_addr.index)
     })
 
 ban = pd.concat([ban, extra_ban], ignore_index=True)

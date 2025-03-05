@@ -29,5 +29,5 @@ pre-commit install
 pre-commit run --all-files
 
 # Download data
-python -m pgms.FILO_carreaux
-python -m pgms.BAN_tele_dezip
+python scripts/download_FILO.py
+python scripts/download_BAN.py

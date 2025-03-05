@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["pgms"]
+packages = ["popdbgen"]
 
 [tool.ruff]
 line-length = 120

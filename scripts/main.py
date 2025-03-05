@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import time
 
 import geopandas as gpd
@@ -5,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pgms import DATA_DIR, generer_table_individus, intersect_ban_avec_carreaux
+from popdbgen import DATA_DIR, generer_table_individus, intersect_ban_avec_carreaux
 
 BAN_974_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-974.csv.gz"
 

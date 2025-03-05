@@ -8,11 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from pgms.fun_generer_base_indiv import generer_table_individus
-from pgms.fun_fusionner_ban_filo import intersect_ban_avec_carreaux
-from pgms.utils import DATA_DIR
+from popdbgen import DATA_DIR, generer_table_individus, intersect_ban_avec_carreaux
 
 file_path = DATA_DIR / "carreaux_200m_reun.gpkg"
 
