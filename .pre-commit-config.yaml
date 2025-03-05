@@ -30,6 +30,7 @@ repos:
     rev: v4.5.0
     hooks:
     -   id: trailing-whitespace
+        # Supprime les espaces en bout de ligne
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-added-large-files
