@@ -70,12 +70,17 @@ def download_extract_FILO(dataDir: Path = DATA_DIR, overwriteIfExists: bool = Fa
     logging.info("Download and extraction done.")
 
 
-def round_alea(x: pd.Series):
-    xfl = np.floor(x).astype("int")
-    return xfl + (np.random.rand(x.size) < x - xfl)
+def round_alea(x: pd.Series) -> pd.Series:
+    """
+    If X = I + D (I natural, 0 <= D < 1),
+    then returns I+1 with probability D and I with probablity 1-D
+    """
+    i, d = divmod(x, 1)
+    return (i + (np.random.rand(len(x)) < d)).astype(int)
 
 
 def refine_FILO(gdf: gpd.GeoDataFrame, territory: str | int = "france", coherence_check: bool = False) -> pd.DataFrame:
+    gdf.drop(columns=["idcar_1km", "idcar_nat", "i_est_200", "i_est_1km"], inplace=True)
     gdf.rename(columns={"idcar_200m": "tile_id"}, inplace=True)
 
     gdf["indi"] = round_alea(gdf.ind)
@@ -93,15 +98,15 @@ def refine_FILO(gdf: gpd.GeoDataFrame, territory: str | int = "france", coherenc
     gdf["meni"] = np.maximum(1, np.minimum(gdf.plus18i, round_alea(gdf.men)))
 
     # Coordonnées des points NE et SO - le point de référence est le point en bas à gauche
-    gdf["YSO"] = gdf["tile_id"].str.extract(r"200mN(.*?)E").astype(int)
-    gdf["XSO"] = gdf["tile_id"].str.extract(r".*E(.*)").astype(int)
-    gdf["YNE"] = gdf["YSO"] + 200
-    gdf["XNE"] = gdf["XSO"] + 200
+    gdf["YSO"] = gdf.tile_id.str.extract(r"200mN(.*?)E").astype(int)
+    gdf["XSO"] = gdf.tile_id.str.extract(r".*E(.*)").astype(int)
+    gdf["YNE"] = gdf.YSO + 200
+    gdf["XNE"] = gdf.XSO + 200
 
     # TODO
     # - preprocess more columns from FILO (age categories, revenue, etc.)
-    # - cleanup: remove original columns with little interest
-    # - (optional) return a fresh GeoDataFrame copy rather than edit in place
+    # - cleanup: remove columns with little interest from the original GeoDataFrame
+    # - (optional) return a fresh GeoDataFrame copy rather than edit in place ?
     return gdf
 
 
