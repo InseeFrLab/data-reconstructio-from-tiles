@@ -8,14 +8,14 @@ MIN_HOUSEHOLD_SIZE = 1
 MAX_HOUSEHOLD_SIZE = 5
 ADULT_AGE_COLUMNS = ['ind_18_24', 'ind_25_39', 'ind_40_54', 'ind_55_64', 'ind_65_79', 'ind_80p', 'ind_inc']
 
-def generate_household_sizes(carreau: pd.Series) -> List[int]:
+def generate_household_sizes(tile: pd.Series) -> List[int]:
     """
     Initialise la liste de tailles des ménages en fonction du 
     nombre de manages d'une personne et de ménages de 5 personnes ou plus.
     """
-    nb_households = int(carreau['men'])
-    nb_1person = int(carreau['men_1ind'])
-    nb_5person_plus = int(carreau['men_5ind'])
+    nb_households = int(tile['men'])
+    nb_1person = int(tile['men_1ind'])
+    nb_5person_plus = int(tile['men_5ind'])
     
     sizes = [MIN_HOUSEHOLD_SIZE] * nb_1person + [MAX_HOUSEHOLD_SIZE] * nb_5person_plus
     sizes += [2] * (nb_households - len(sizes))
@@ -47,12 +47,12 @@ def adjust_household_sizes(sizes: List[int], total_individuals: int) -> List[int
     
     return sizes
 
-def allocate_adults(carreau: pd.Series, sizes: List[int]) -> List[int]:
+def allocate_adults(tile: pd.Series, sizes: List[int]) -> List[int]:
     """
     Alloue un nombre d'adultes à chacun des ménages du carreau
     """
-    nb_adults = int(sum(carreau[ADULT_AGE_COLUMNS]))
-    nb_single_parent = int(carreau['men_fmp'])
+    nb_adults = int(sum(tile[ADULT_AGE_COLUMNS]))
+    nb_single_parent = int(tile['men_fmp'])
     
     # Tous les ménages ont au moins un adulte
     adults = [1] * len(sizes)
@@ -78,39 +78,75 @@ def allocate_adults(carreau: pd.Series, sizes: List[int]) -> List[int]:
     
     return adults
 
-def generate_households(carreau: pd.Series) -> pd.DataFrame:
+def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> pd.DataFrame:
+    """Tire un ensemble d'adresses pour chacun des ménages du carreau.
+
+    Args:
+        tile (pd.Series): informations sur le carreau
+        addresses (pd.DataFrame): adresses contenues dans le carreau
+
+    Returns:
+        pd.DataFrame: Coordonnées x, y  des adresses tirées pour les ménages du carreau. 
+        Contient autant de lignes que le carreau contient de ménages.
+    """
+    if tile.men == 0:
+        return []
+    # Si aucune adresses n'est disponible, des points fictifs sont créés au sein du carreau
+    if addresses.empty:
+        drawn_addresses = pd.DataFrame(
+            [
+                {
+                    "x": np.random.randint(tile.XSO, tile.XNE+1, adresses.shape[0]),
+                    "y": np.random.randint(tile.YSO, tile.YNE+1, adresses.shape[0]),
+                    "tile_id": tile.tile_id,
+                }
+            ]
+        )
+    else:
+        # Tirage des adresses:
+        # Possibilité de tirer plusieurs fois la même adresse.
+        adresses_indices = np.random.randint(addresses.shape[0], tile.men)
+        drawn_addresses = addresses[adresses_indices]
+        
+    return(drawn_addresses)
+
+def generate_households(tile: pd.Series, addresses: pd.DataFrame) -> pd.DataFrame:
     """
     Génère une base de ménages d'un carreau
     """
-    total_individuals = int(carreau['ind'])
-    sizes = generate_household_sizes(carreau)
+    total_individuals = int(tile['ind'])
+    sizes = generate_household_sizes(tile)
     sizes = adjust_household_sizes(sizes, total_individuals)
-    adults = allocate_adults(carreau, sizes)
+    adults = allocate_adults(tile, sizes)
     
     households = []
     for i, (size, adult_count) in enumerate(zip(sizes, adults)):
         households.append({
-            "IDMEN": f"{carreau['idcar_200m']}_{i+1}",
+            "IDMEN": f"{tile['idcar_200m']}_{i+1}",
             "TAILLE": size,
             "NB_ADULTES": adult_count,
             "NB_MINEURS": size - adult_count,
-            "id_carr200": carreau['idcar_200m']
+            "tile_id": tile['idcar_200m']
         })
     households_df = pd.DataFrame(households)
     households_df["MONOPARENT"] = (households_df["NB_ADULTES"] == 1) * (households_df["NB_MINEURS"] > 0)
     households_df["GRD_MENAGE"] = households_df["TAILLE"] >= 5
     
+    drawn_addresses = draw_adresses(tile, addresses)
+    
+    households_df = pd.concat([households_df.reset_index(drop=True), drawn_addresses[['x','y']].reset_index(drop=True)], axis=1)
+    
     return households_df
 
-def validate_households(households: pd.DataFrame, carreau: pd.Series) -> bool:
+def validate_households(households: pd.DataFrame, tile: pd.Series) -> bool:
     """
     Teste la cohérence d'une base de ménages générée sur un carreau avec les informations
     du carreau lui-même.
     """
-    total_individuals = int(carreau['ind'])
-    total_monoparents = int(carreau['men_fmp'])
-    total_gd_menages = int(carreau['men_5ind'])
-    total_adults = int(sum(carreau[ADULT_AGE_COLUMNS]))
+    total_individuals = int(tile['ind'])
+    total_monoparents = int(tile['men_fmp'])
+    total_gd_menages = int(tile['men_5ind'])
+    total_adults = int(sum(tile[ADULT_AGE_COLUMNS]))
     total_minors = total_individuals - total_adults
     
     checks = {
@@ -125,28 +161,21 @@ def validate_households(households: pd.DataFrame, carreau: pd.Series) -> bool:
 
 # %%
 # Préparation d'un carreau
-import sys
-import time
-from pathlib import Path
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+from popdbgen import DATA_DIR, load_FILO, load_BAN, merge_FILO_BAN
 
-from pgms.utils import DATA_DIR
-
-file_path = DATA_DIR / "carreaux_200m_reun.gpkg"
+carr200 = load_FILO(territory = "reun", check_coherence = True)
+ban = load_BAN(territory = "974")
 
 np.random.seed(1703)
 
-BAN_974_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-974.csv.gz"
 
-# ETAPE 1: base individuelle à partir des carreaux
-file_path = "../data/carreaux_200m_reun.gpkg"
-carr200 = gpd.read_file(file_path)
+# %%
 
 mon_carreau = carr200.iloc[0]
 mon_carreau[[
@@ -167,7 +196,8 @@ mon_carreau.ind_80p = 1
 mon_carreau.ind_11_17 = 2 
  # %%
 
-households_df = generate_households(mon_carreau)
+adresses = pd.DataFrame({"x": [], "y": []})
+households_df = generate_households(mon_carreau, adresses)
 
 if validate_households(households_df, mon_carreau):
     print("Génération des ménages cohérente avec les données du carreau")
@@ -175,5 +205,3 @@ else:
     print("Error: les données générées sont incohérentes avec les informations du carreau.")
 
 print(households_df)
-
-# %%
