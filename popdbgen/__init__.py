@@ -1,5 +1,5 @@
 from .download_ban import download_BAN, get_BAN_URL, load_BAN
-from .download_filo import download_extract_FILO, get_FILO_filename, load_FILO
+from .download_filo import download_extract_FILO, get_FILO_filename, load_FILO, refine_FILO, round_alea
 from .fun_fusionner_ban_filo import intersect_ban_avec_carreaux
 from .fun_generer_base_indiv import generer_table_individus
 from .merge_filo_ban import merge_FILO_BAN
@@ -13,7 +13,9 @@ __all__ = [
     "load_BAN",
     "get_FILO_filename",
     "download_extract_FILO",
+    "refine_FILO",
     "load_FILO",
+    "round_alea",
     "merge_FILO_BAN",
     "generer_table_individus",
     "intersect_ban_avec_carreaux",

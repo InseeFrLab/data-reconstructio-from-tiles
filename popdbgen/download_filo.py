@@ -13,6 +13,10 @@ from .utils import DATA_DIR
 
 # URL par défaut du fichier à télécharger
 FILO_URL: str = "https://www.insee.fr/fr/statistiques/fichier/7655475/Filosofi2019_carreaux_200m_gpkg.zip"
+ADULT_AGE_COLUMNS: list[str] = ["ind_18_24", "ind_25_39", "ind_40_54", "ind_55_64", "ind_65_79", "ind_80p", "ind_inc"]
+MINOR_AGE_COLUMNS: list[str] = ["ind_0_3", "ind_4_5", "ind_6_10", "ind_11_17"]
+HOUSEHOLD_COLUMNS: list[str] = ["men_1ind", "men_5ind", "men_prop", "men_fmp", "men_coll", "men_mais"]
+NUMERIC_COLUMNS: list[str] = ["ind_snv", "men_pauv"]
 
 
 def get_FILO_filename(territory: str | int = "france", dataDir: Path = DATA_DIR) -> Path:
@@ -79,35 +83,113 @@ def round_alea(x: pd.Series) -> pd.Series:
     return (i + (np.random.rand(len(x)) < d)).astype(int)
 
 
+def name_integer_column(names: list[str]) -> list[str]:
+    return [s + "i" for s in names]
+
+
 def refine_FILO(gdf: gpd.GeoDataFrame, territory: str | int = "france", coherence_check: bool = False) -> pd.DataFrame:
     gdf.drop(columns=["idcar_1km", "idcar_nat", "i_est_200", "i_est_1km"], inplace=True)
     gdf.rename(columns={"idcar_200m": "tile_id"}, inplace=True)
 
-    gdf["indi"] = round_alea(gdf.ind)
+    logging.info("Counts to integers")
+
+    variables = ["ind", "men"] + ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS + HOUSEHOLD_COLUMNS
+    gdfi = gdf[variables].apply(round_alea)
+    gdfi.columns = name_integer_column(variables)
+    gdfi = pd.concat([gdf[["tile_id"] + NUMERIC_COLUMNS], gdfi], axis=1)
+
+    gdfi["inda"] = gdfi[name_integer_column(ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS)].sum(axis=1)
+    gdfi["diff_ind"] = gdfi.indi - gdfi.inda
+    gdfi["men_adult_inconsist"] = gdfi.meni > gdfi[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)
+
+    print(f"Somme des écarts absolus des comptages d'individus {str(gdfi.diff_ind.abs().sum())}")
+    print(f"Nb de carreaux avec des écarts dans les comptages d'individus {str(sum(gdfi.diff_ind.abs() > 0 ))}")
+    print(f"Nb de carreaux avec un nb d'adultes insuffisants {str(sum(gdfi.men_adult_inconsist))}")
+
+    logging.info("Handling inconsistencies")
+
+    for i, row in gdfi.iterrows():
+        if row["diff_ind"] == 0 and not row["men_adult_inconsist"]:
+            continue
+
+        # Gestion de la cohérence des âges des individus avec le nb d'individus
+        diff = row["diff_ind"]
+        if diff > 0:  # indi > inda => ajouter des individus la classe d'âge inconnu
+            row["ind_inci"] += diff
+        elif (
+            diff < 0
+        ):  # indi < inda => retirer des individus dans certaines catégories d'âge (en priorité la catégorie inconnue)
+            inci = row["ind_inci"]
+            if inci > 0:
+                new_inci = np.maximum(0, inci + diff)
+                row["ind_inci"] = new_inci
+                diff += inci - new_inci
+
+            while diff != 0:
+                if sum(row[name_integer_column(ADULT_AGE_COLUMNS)]) > row.meni:
+                    eligible_categories = [
+                        s
+                        for s in name_integer_column(ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS)
+                        if s != "ind_inci" and row[s] > 0
+                    ]
+                else:
+                    eligible_categories = [
+                        s for s in name_integer_column(MINOR_AGE_COLUMNS) if s != "ind_inci" and row[s] > 0
+                    ]
+
+                if diff > 0:
+                    raise Exception("Le code est absurde !")
+                else:
+                    drawn_cat = np.random.choice(eligible_categories)
+                    row[drawn_cat] -= 1
+                    diff += 1
+
+        # Gestion des incohérences résiduelles entre nb d'adultes et nb de ménages
+        diff = row.meni - sum(row[name_integer_column(ADULT_AGE_COLUMNS)])
+        while diff > 0:
+            eligible_categories = [s for s in name_integer_column(MINOR_AGE_COLUMNS) if row[s] > 0]
+            drawn_cat = np.random.choice(eligible_categories)
+            row[drawn_cat] -= 1
+            row["ind_inci"] += 1
+            diff -= 1
+
+        gdfi.iloc[i] = row
+
+    gdfi["plus18i"] = gdfi[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)
+    gdfi["moins18i"] = gdfi[name_integer_column(MINOR_AGE_COLUMNS)].sum(axis=1)
+    gdfi["inda"] = gdfi["plus18i"] + gdfi["moins18i"]
+    gdfi["diff_ind"] = gdfi.indi - gdfi.inda
+
+    print(f"Somme des écarts absolus des comptages d'individus {str(gdfi.diff_ind.abs().sum())}")
+    print(f"Nb de carreaux avec des écarts dans les comptages d'individus {str(sum(gdfi.diff_ind.abs() > 0 ))}")
+    print(
+        f"Nb de carreaux avec un nb d'adultes insuffisants \
+            {str(sum(gdfi.meni > gdfi[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)))}"
+    )
 
     # plus18: at least 1 and no more than indi
-    gdf["plus18i"] = np.maximum(
-        1,
-        np.minimum(
-            gdf.indi,
-            round_alea(gdf.ind_18_24 + gdf.ind_25_39 + gdf.ind_40_54 + gdf.ind_55_64 + gdf.ind_65_79 + gdf.ind_80p),
-        ),
-    )
-    gdf["moins18i"] = gdf.indi - gdf.plus18i
-    # meni: at least 1 and no more than plus18i
-    gdf["meni"] = np.maximum(1, np.minimum(gdf.plus18i, round_alea(gdf.men)))
+    # gdf["plus18i"] = np.maximum(
+    #     1,
+    #     np.minimum(
+    #         gdf.indi,
+    #         round_alea(gdf.ind_18_24 + gdf.ind_25_39 + gdf.ind_40_54 + gdf.ind_55_64 + gdf.ind_65_79 + gdf.ind_80p),
+    #     ),
+    # )
+    # gdf["moins18i"] = gdf.indi - gdf.plus18i
+    # # meni: at least 1 and no more than plus18i
+    # gdf["meni"] = np.maximum(1, np.minimum(gdf.plus18i, round_alea(gdf.men)))
 
     # Coordonnées des points NE et SO - le point de référence est le point en bas à gauche
-    gdf["YSO"] = gdf.tile_id.str.extract(r"200mN(.*?)E").astype(int)
-    gdf["XSO"] = gdf.tile_id.str.extract(r".*E(.*)").astype(int)
-    gdf["YNE"] = gdf.YSO + 200
-    gdf["XNE"] = gdf.XSO + 200
+    gdfi["YSO"] = gdfi.tile_id.str.extract(r"200mN(.*?)E").astype(int)
+    gdfi["XSO"] = gdfi.tile_id.str.extract(r".*E(.*)").astype(int)
+    gdfi["YNE"] = gdfi.YSO + 200
+    gdfi["XNE"] = gdfi.XSO + 200
 
     # TODO
     # - preprocess more columns from FILO (age categories, revenue, etc.)
     # - cleanup: remove columns with little interest from the original GeoDataFrame
     # - (optional) return a fresh GeoDataFrame copy rather than edit in place ?
-    return gdf
+    return gdfi
 
 
 def coherence_check(tiled_filo: pd.DataFrame):
