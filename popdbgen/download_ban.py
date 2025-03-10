@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .utils import DATA_DIR
+from .utils import DATA_DIR, territory_code
 
 # Template d'URL du fichier de la base d'adresses nationale (BAN)
 BAN_TEMPLATE_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-{}.csv.gz"
@@ -17,7 +17,7 @@ def get_BAN_URL(territory: str = "france") -> str:
     """
     Returns the URL linking to the open data BAN file.
     """
-    return BAN_TEMPLATE_URL.format(territory)
+    return BAN_TEMPLATE_URL.format(territory_code(territory))
 
 
 def download_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> Path:
@@ -32,7 +32,7 @@ def download_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteI
         dataDir.mkdir(exist_ok=True)
 
     # Chemin complet du fichier à télécharger
-    file_path = dataDir / f"adresses-{territory}.csv.gz"
+    file_path = dataDir / f"adresses-{territory_code(territory)}.csv.gz"
 
     if file_path.is_file():
         if overwriteIfExists:
@@ -59,13 +59,10 @@ def download_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteI
 
 def load_BAN(territory: str = "france") -> pd.DataFrame:
     # Download
+    territory = territory_code(territory)
     ban_file = download_BAN(territory)
 
-    epsg = "2154"
-    if territory == "974":
-        epsg = "2975"
-    # TODO
-    # - Finish this to handle all other territories
+    epsg = {"france": "2154", "974": "2975"}.get(territory_code(territory), "2154")
 
     ban = pd.read_csv(ban_file, sep=";", usecols=["x", "y"])
 

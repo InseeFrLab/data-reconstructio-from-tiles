@@ -9,7 +9,7 @@ import pandas as pd
 import py7zr
 import requests
 
-from .utils import DATA_DIR
+from .utils import DATA_DIR, territory_code
 
 # URL par défaut du fichier à télécharger
 FILO_URL: str = "https://www.insee.fr/fr/statistiques/fichier/7655475/Filosofi2019_carreaux_200m_gpkg.zip"
@@ -20,12 +20,12 @@ NUMERIC_COLUMNS: list[str] = ["ind_snv", "men_pauv"]
 
 
 def get_FILO_filename(territory: str | int = "france", dataDir: Path = DATA_DIR) -> Path:
-    territory = str(territory).lower()
-    if territory in ("france", "met", "metro"):
+    territory = territory_code(territory)
+    if territory == "france":
         return dataDir / "carreaux_200m_met.gpkg"
-    elif territory in ("972", "martinique", "mart"):
+    elif territory == "972":
         return dataDir / "carreaux_200m_mart.gpkg"
-    elif territory in ("974", "reunion", "reun", "reu"):
+    elif territory == "974":
         return dataDir / "carreaux_200m_reun.gpkg"
     else:
         raise FileNotFoundError(f"No FILO file for territory [{territory}]!")
@@ -103,9 +103,9 @@ def refine_FILO(gdf: gpd.GeoDataFrame, territory: str | int = "france", coherenc
     gdfi["men_adult_inconsist"] = gdfi.meni > gdfi[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)
 
     # ou mettre en logging.debug
-    print(f"Somme des écarts absolus des comptages d'individus {str(gdfi.diff_ind.abs().sum())}")  # flush=True
-    print(f"Nb de carreaux avec des écarts dans les comptages d'individus {str(sum(gdfi.diff_ind.abs() > 0 ))}")
-    print(f"Nb de carreaux avec un nb d'adultes insuffisants {str(sum(gdfi.men_adult_inconsist))}")
+    logging.debug(f"Somme des écarts absolus des comptages d'individus {gdfi.diff_ind.abs().sum()}")  # flush=True
+    logging.debug(f"Nb de carreaux avec des écarts dans les comptages d'individus {(gdfi.diff_ind != 0).sum()}")
+    logging.debug(f"Nb de carreaux avec un nb d'adultes insuffisants {sum(gdfi.men_adult_inconsist)}")
 
     logging.info("Handling inconsistencies")
 
@@ -161,9 +161,9 @@ def refine_FILO(gdf: gpd.GeoDataFrame, territory: str | int = "france", coherenc
     gdfi["inda"] = gdfi["plus18i"] + gdfi["moins18i"]
     gdfi["diff_ind"] = gdfi.indi - gdfi.inda
 
-    print(f"Somme des écarts absolus des comptages d'individus {str(gdfi.diff_ind.abs().sum())}")
-    print(f"Nb de carreaux avec des écarts dans les comptages d'individus {str(sum(gdfi.diff_ind.abs() > 0 ))}")
-    print(
+    logging.debug(f"Somme des écarts absolus des comptages d'individus {gdfi.diff_ind.abs().sum()}")
+    logging.debug(f"Nb de carreaux avec des écarts dans les comptages d'individus {str(sum(gdfi.diff_ind.abs() > 0 ))}")
+    logging.debug(
         f"Nb de carreaux avec un nb d'adultes insuffisants \
             {str(sum(gdfi.meni > gdfi[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)))}"
     )
