@@ -65,7 +65,9 @@ def allocate_adults(tile: pd.Series, sizes: List[int]) -> List[int]:
     Alloue un nombre d'adultes à chacun des ménages du carreau
     """
     nb_adults = int(sum(tile[ADULT_AGE_COLUMNS_INT]))
+    nb_minors = int(sum(tile[MINOR_AGE_COLUMNS_INT]))
     nb_single_parent = int(tile['men_fmpi'])
+    nb_single_parent = nb_single_parent if nb_minors >= nb_single_parent else nb_minors
 
     # Tous les ménages ont au moins un adulte
     adults = [1] * len(sizes)
@@ -252,20 +254,30 @@ def generate_individuals(tile: pd.Series, addresses: pd.DataFrame):
     individuals_df = individuals_df.merge(hh[['tile_id','IDMEN','TAILLE','NIVEAU_VIE', 'MONOPARENT','GRD_MENAGE','x','y']], on = 'IDMEN')
     return individuals_df
 
+
+# %%
+tile = carr200i.iloc[1]
+addresses = ban.loc[ban.tile_id == tile.tile_id]
 individuals_df = generate_individuals(tile, addresses)
 
 # %%
 # 4- Tests des fonctions de génération de la base de ménages
-tile = carr200i.iloc[0]
-addresses = ban.loc[ban.tile_id == tile.tile_id]
+
 
 start_time = time.time()
+individuals_df_list = []
 
-individuals_df = generate_individuals(tile, addresses)
+for i in range(carr200i.shape[0]):
+    print(i)
+    tile = carr200i.iloc[i]
+    addresses = ban.loc[ban.tile_id == tile.tile_id]
+    individuals_df_list.append(generate_individuals(tile, addresses))
+
+individuals_df = pd.concat(individuals_df_list)
 
 end_time = time.time()
 
 print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
-print(individuals_df)
+print(individuals_df.head())
 
 # %%
