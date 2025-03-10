@@ -1,21 +1,24 @@
-# %%
-
+# 1- fonctions pour générer la base de ménages carreau par carreau
+from typing import Dict, List, Tuple
+from pathlib import Path
+import geopandas as gpd
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple
+import time
 
 MIN_HOUSEHOLD_SIZE = 1
 MAX_HOUSEHOLD_SIZE = 5
-ADULT_AGE_COLUMNS = ['ind_18_24', 'ind_25_39', 'ind_40_54', 'ind_55_64', 'ind_65_79', 'ind_80p', 'ind_inc']
+ADULT_AGE_COLUMNS_INT = ['ind_18_24i', 'ind_25_39i', 'ind_40_54i', 'ind_55_64i', 'ind_65_79i', 'ind_80pi', 'ind_inci']
 
 def generate_household_sizes(tile: pd.Series) -> List[int]:
     """
     Initialise la liste de tailles des ménages en fonction du
-    nombre de manages d'une personne et de ménages de 5 personnes ou plus.
+    nombre de ménages d'une personne et de ménages de 5 personnes ou plus.
     """
-    nb_households = int(tile['men'])
-    nb_1person = int(tile['men_1ind'])
-    nb_5person_plus = int(tile['men_5ind'])
+    nb_households = int(tile['meni'])
+    nb_1person = int(tile['men_1indi'])
+    nb_5person_plus = int(tile['men_5indi'])
 
     sizes = [MIN_HOUSEHOLD_SIZE] * nb_1person + [MAX_HOUSEHOLD_SIZE] * nb_5person_plus
     sizes += [2] * (nb_households - len(sizes))
@@ -51,8 +54,8 @@ def allocate_adults(tile: pd.Series, sizes: List[int]) -> List[int]:
     """
     Alloue un nombre d'adultes à chacun des ménages du carreau
     """
-    nb_adults = int(sum(tile[ADULT_AGE_COLUMNS]))
-    nb_single_parent = int(tile['men_fmp'])
+    nb_adults = int(sum(tile[ADULT_AGE_COLUMNS_INT]))
+    nb_single_parent = int(tile['men_fmpi'])
 
     # Tous les ménages ont au moins un adulte
     adults = [1] * len(sizes)
@@ -89,8 +92,8 @@ def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: Coordonnées x, y  des adresses tirées pour les ménages du carreau.
         Contient autant de lignes que le carreau contient de ménages.
     """
-    if tile.men == 0:
-        return []
+    if tile['meni'] == 0:
+        return None
     # Si aucune adresses n'est disponible, des points fictifs sont créés au sein du carreau
     if addresses.empty:
         drawn_addresses = pd.DataFrame(
@@ -105,8 +108,8 @@ def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> pd.DataFrame:
     else:
         # Tirage des adresses:
         # Possibilité de tirer plusieurs fois la même adresse.
-        adresses_indices = np.random.randint(addresses.shape[0], tile.men)
-        drawn_addresses = addresses[adresses_indices]
+        adresses_indices = np.random.randint(low=addresses.shape[0], high=None, size=tile['meni'])
+        drawn_addresses = addresses.iloc[adresses_indices]
 
     return(drawn_addresses)
 
@@ -114,19 +117,28 @@ def generate_households(tile: pd.Series, addresses: pd.DataFrame) -> pd.DataFram
     """
     Génère une base de ménages d'un carreau
     """
-    total_individuals = int(tile['ind'])
+    total_individuals = int(tile['indi'])
     sizes = generate_household_sizes(tile)
     sizes = adjust_household_sizes(sizes, total_individuals)
     adults = allocate_adults(tile, sizes)
 
+    # Le niveau de vie des individus dans le ménage
+    # On répartit le total des niveaux de vie entre les ménages
+    # Les niveaux de vie des individus d'un même ménage sont identiques
+    parts = np.random.uniform(0, 1, len(sizes)) #tirage uniforme potentiellement trop perturbateur.
+    parts = parts/sum(parts)
+
+    niveau_vie_ind_hh = [tile['ind_snv']*p/s for p, s in zip(parts, sizes)]
+
     households = []
-    for i, (size, adult_count) in enumerate(zip(sizes, adults)):
+    for i, (size, adult_count, nivvie) in enumerate(zip(sizes, adults, niveau_vie_ind_hh)):
         households.append({
-            "IDMEN": f"{tile['idcar_200m']}_{i+1}",
+            "IDMEN": f"{tile['tile_id']}_{i+1}",
             "TAILLE": size,
             "NB_ADULTES": adult_count,
             "NB_MINEURS": size - adult_count,
-            "tile_id": tile['idcar_200m']
+            "tile_id": tile['tile_id'],
+            "NIVEAU_VIE": nivvie
         })
     households_df = pd.DataFrame(households)
     households_df["MONOPARENT"] = (households_df["NB_ADULTES"] == 1) * (households_df["NB_MINEURS"] > 0)
@@ -143,10 +155,10 @@ def validate_households(households: pd.DataFrame, tile: pd.Series) -> bool:
     Teste la cohérence d'une base de ménages générée sur un carreau avec les informations
     du carreau lui-même.
     """
-    total_individuals = int(tile['ind'])
-    total_monoparents = int(tile['men_fmp'])
-    total_gd_menages = int(tile['men_5ind'])
-    total_adults = int(sum(tile[ADULT_AGE_COLUMNS]))
+    total_individuals = int(tile['indi'])
+    total_monoparents = int(tile['men_fmpi'])
+    total_gd_menages = int(tile['men_5indi'])
+    total_adults = int(sum(tile[ADULT_AGE_COLUMNS_INT]))
     total_minors = total_individuals - total_adults
 
     checks = {
@@ -160,158 +172,82 @@ def validate_households(households: pd.DataFrame, tile: pd.Series) -> bool:
     return all(checks.values())
 
 # %%
-# Préparation d'un carreau
+# 2- Préparation des données en appelant la fonction refine_FILO
+from popdbgen import DATA_DIR, get_FILO_filename, download_extract_FILO, refine_FILO, load_BAN, merge_FILO_BAN
 
-import geopandas as gpd
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-
-from popdbgen import DATA_DIR, load_FILO, load_BAN, merge_FILO_BAN, round_alea
+def load_FILO_without_refinement(territory: str = "france", dataDir: Path = DATA_DIR):
+    download_extract_FILO()
+    file_path = get_FILO_filename(territory, dataDir=dataDir)
+    tiled_filo = gpd.read_file(file_path)
+    return tiled_filo
 
 np.random.seed(1703)
 
-carr200 = load_FILO(territory = "reun", check_coherence = True)
+carr200 = load_FILO_without_refinement(territory = "reun")
 ban = load_BAN(territory = "974")
 
+start_time = time.time()
 
+carr200i = refine_FILO(carr200)
 
+end_time = time.time()
 
-# %%
-
-ADULT_AGE_COLUMNS: list[str] = ['ind_18_24', 'ind_25_39', 'ind_40_54', 'ind_55_64', 'ind_65_79', 'ind_80p', 'ind_inc']
-MINOR_AGE_COLUMNS: list[str] = ['ind_0_3', 'ind_4_5', 'ind_6_10', 'ind_11_17']
-HOUSEHOLD_COLUMNS: list[str] = ['men_1ind', 'men_5ind', 'men_prop', 'men_fmp', 'men_coll', 'men_mais']
-
-def name_integer_column(names: list[str]):
-    return [s + "i" for s in names]
-
-# les variables individus (âge):
-# arrondir aléatoirement tous les comptages
-# mise en cohérence:
-# somme des âges adultes int est nécessairement >= meni : si pas le cas mettre tirer aléatoirement des catéories d'âges pour les gonfler
-# somme des âges a
-# somme des âges int = indi:
-# si pas le cas et si somme des âges adultes > alors réduire les comptages de certaines catégories
-# (aléa uniforme ou aléa en fonction des probas du premier arrondi aléatoire)
-
-carr200i = carr200[ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS + HOUSEHOLD_COLUMNS].apply(round_alea)
-carr200i.columns = name_integer_column(carr200i.columns)
-carr200i = pd.concat([carr200[['tile_id','indi','meni','plus18i','moins18i']], carr200i], axis=1)
-
-carr200i["inda"] = carr200i[name_integer_column(ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS)].sum(axis=1)
-carr200i["diff_ind"] = carr200i.indi - carr200i.inda
-carr200i["men_adult_inconsist"] = carr200i.meni > carr200i[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)
-
-print(f"Somme des écarts absolus des comptages d'individus {str(carr200i.diff_ind.abs().sum())}")
-print(f"Nb de carreaux avec des écarts dans les comptages d'individus {str(sum(carr200i.diff_ind.abs() > 0 ))}")
-print(f"Nb de carreaux avec un nb d'adultes insuffisants {str(sum(carr200i.men_adult_inconsist))}")
-
-carr200i[['indi','inda','diff_ind','men_adult_inconsist']].head(10)
+print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
 
 # %%
-# Gestion d'incohérences des comptages
-carr200j = carr200i.copy(deep=True)
+# 3- Tests des fonctions de génération de la base de ménages sur un seul carreau
+tile = carr200i.iloc[0]
+addresses = ban.loc[ban.tile_id == tile.tile_id]
+households_df = generate_households(tile, addresses)
 
-for i, row in carr200j.iterrows():
-    if row["diff_ind"] == 0 and row["men_adult_inconsist"] == False:
-        continue
-
-    # Gestion de la cohérence des âges des individus avec le nb d'individus
-    diff = row["diff_ind"]
-    if diff > 0: # indi > inda => ajouter des individus dans certaines catégories d'âge
-        row["ind_inci"] += diff
-    elif diff < 0: # indi < inda => retirer des individus dans certaines catégories d'âge (en priorité la catégorie inconnue)
-        inci = row["ind_inci"]
-        if inci > 0:
-            new_inci = np.maximum(0, inci + diff)
-            row["ind_inci"] = new_inci
-            diff += (inci - new_inci)
-
-        while diff != 0:
-            if sum(row[name_integer_column(ADULT_AGE_COLUMNS)]) > row.meni:
-                eligible_categories = [s for s in name_integer_column(ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS) if s != "ind_inci" and row[s] > 0]
-            else:
-                eligible_categories = [s for s in name_integer_column(MINOR_AGE_COLUMNS) if s != "ind_inci" and row[s] > 0]
-
-            if diff > 0:
-                raise Exception("Le code est absurde !")
-            else:
-                drawn_cat = np.random.choice(eligible_categories)
-                row[drawn_cat] -= 1
-                diff += 1
-
-    # Gestion des incohérences résiduelles entre nb d'adultes et nb de ménages
-    diff = row.meni - sum(row[name_integer_column(ADULT_AGE_COLUMNS)])
-    while diff > 0:
-        eligible_categories = [s for s in name_integer_column(MINOR_AGE_COLUMNS) if row[s] > 0]
-        drawn_cat = np.random.choice(eligible_categories)
-        row[drawn_cat] -=1
-        row["ind_inci"] +=1
-        diff -= 1
-
-    carr200j.iloc[i] = row
-
-carr200j["plus18i"] = carr200j[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)
-carr200j["moins18i"] = carr200j[name_integer_column(MINOR_AGE_COLUMNS)].sum(axis=1)
-carr200j["inda"] = carr200j["plus18i"] + carr200j["moins18i"]
-carr200j["diff_ind"] = carr200j.indi - carr200j.inda
-
-print(f"Somme des écarts absolus des comptages d'individus {str(carr200j.diff_ind.abs().sum())}")
-print(f"Nb de carreaux avec des écarts dans les comptages d'individus {str(sum(carr200j.diff_ind.abs() > 0 ))}")
-print(f"Nb de carreaux avec un nb d'adultes insuffisants {str(sum(carr200j.meni > carr200j[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)))}")
-
-
-
-# %%
-# Gestion des incohérences résiduelles entre nb d'adultes et nb de ménages
-# Il y a incohérence qd meni > nb adultes
-for i, row in carr200j.iterrows():
-    diff = row.meni - sum(row[name_integer_column(ADULT_AGE_COLUMNS)])
-    while diff > 0:
-        eligible_categories = [s for s in name_integer_column(MINOR_AGE_COLUMNS) if row[s] > 0]
-        drawn_cat = np.random.choice(eligible_categories)
-        carr200j.loc[i, drawn_cat] -=1
-        carr200j.loc[i, "ind_inci"] +=1
-        diff -= 1
-
-print(f"Nb de carreaux avec un nb d'adultes insuffisants {str(sum(carr200j.meni > carr200j[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)))}")
-
-
-# %%
-pbs = carr200j.loc[carr200j['diff_ind'] != 0]
-pbs[['indi','inda','diff_ind']].head(10)
-
-carr200i.iloc[24][['indi','inda','diff_ind']]
-
-# %%
-
-
-mon_carreau = carr200.iloc[0]
-mon_carreau[[
-    'ind','men','men_1ind','men_5ind',
-    'men_prop','men_fmp','men_coll', 'men_mais',
-    'ind_0_3', 'ind_4_5', 'ind_6_10', 'ind_11_17',
-    'ind_18_24', 'ind_25_39', 'ind_40_54', 'ind_55_64', 'ind_65_79', 'ind_80p', 'ind_inc'
-]] = mon_carreau[[
-    'ind','men','men_1ind','men_5ind',
-    'men_prop','men_fmp','men_coll', 'men_mais',
-    'ind_0_3', 'ind_4_5', 'ind_6_10', 'ind_11_17',
-    'ind_18_24', 'ind_25_39', 'ind_40_54', 'ind_55_64', 'ind_65_79', 'ind_80p', 'ind_inc'
-]].apply(np.floor)
-
-mon_carreau.ind_25_39 = 5
-mon_carreau.ind_65_79 = 6
-mon_carreau.ind_80p = 1
-mon_carreau.ind_11_17 = 2
- # %%
-
-adresses = pd.DataFrame({"x": [], "y": []})
-households_df = generate_households(mon_carreau, adresses)
-
-if validate_households(households_df, mon_carreau):
+if validate_households(households_df, tile):
     print("Génération des ménages cohérente avec les données du carreau")
 else:
     print("Error: les données générées sont incohérentes avec les informations du carreau.")
 
 print(households_df)
+
+
+# %%
+# 4- Génération de la base d'individus à partir d'un carreau et des adresses
+def generate_individuals(tile: pd.Series, addresses: pd.DataFrame):
+
+    # Génération de la base de ménages
+    hh = generate_households(tile, addresses)
+    # Génération d'une base d'individus basée sur la base de ménages
+    repeate_idmen = np.repeat(hh['IDMEN'], hh['TAILLE'])
+    individual_id = np.concatenate([
+        [idmen + '_' + str(i+1) for i in range(n)]
+        for n, idmen in zip(hh['TAILLE'], hh['IDMEN'])
+    ])
+    statut = np.concatenate([
+        np.concatenate([np.repeat('adulte', nb_adultes), np.repeat('mineur', nb_mineurs)])
+        for nb_adultes, nb_mineurs in zip(hh['NB_ADULTES'], hh['NB_MINEURS'])
+    ])
+
+    # Ajout de l'âge
+
+    # Ajout du niveau de vie individuel : ind_snv = somme des niveaux de vie winsorisés des individus
+    # Tous les individus d'un même ménage dispose du même niveau de vie
+
+    individuals_df = pd.DataFrame({'ID': individual_id, 'IDMEN': repeate_idmen, 'STATUT': statut})
+    individuals_df = individuals_df.merge(hh[['tile_id','IDMEN','TAILLE','NIVEAU_VIE', 'MONOPARENT','GRD_MENAGE','x','y']], on = 'IDMEN')
+    return individuals_df
+
+
+
+# %%
+# 4- Tests des fonctions de génération de la base de ménages
+tile = carr200i.iloc[0]
+addresses = ban.loc[ban.tile_id == tile.tile_id]
+
+start_time = time.time()
+
+individuals_df = generate_individuals(tile, addresses)
+
+end_time = time.time()
+
+print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
+print(individuals_df)
+
+# %%
