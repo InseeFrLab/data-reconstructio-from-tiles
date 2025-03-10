@@ -193,7 +193,7 @@ tile = carr200i.iloc[0]
 addresses = ban.loc[ban.tile_id == tile.tile_id]
 households_df = generate_households(tile, addresses)
 
-if validate_households(households_df, mon_carreau):
+if validate_households(households_df, tile):
     print("Génération des ménages cohérente avec les données du carreau")
 else:
     print("Error: les données générées sont incohérentes avec les informations du carreau.")
@@ -206,7 +206,7 @@ tile = carr200i.iloc[0]
 addresses = ban.loc[ban.tile_id == tile.tile_id]
 households_df = generate_households(tile, addresses)
 
-if validate_households(households_df, mon_carreau):
+if validate_households(households_df, tile):
     print("Génération des ménages cohérente avec les données du carreau")
 else:
     print("Error: les données générées sont incohérentes avec les informations du carreau.")
