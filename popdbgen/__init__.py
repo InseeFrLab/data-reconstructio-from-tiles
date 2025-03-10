@@ -3,11 +3,12 @@ from .download_filo import download_extract_FILO, get_FILO_filename, load_FILO, 
 from .fun_fusionner_ban_filo import intersect_ban_avec_carreaux
 from .fun_generer_base_indiv import generer_table_individus
 from .merge_filo_ban import merge_FILO_BAN
-from .utils import DATA_DIR, PROJECT_DIR
+from .utils import DATA_DIR, PROJECT_DIR, territory_code
 
 __all__ = [
     "DATA_DIR",
     "PROJECT_DIR",
+    "territory_code",
     "get_BAN_URL",
     "download_BAN",
     "load_BAN",
@@ -19,5 +20,4 @@ __all__ = [
     "merge_FILO_BAN",
     "generer_table_individus",
     "intersect_ban_avec_carreaux",
-    "creer_base_individus",
 ]
