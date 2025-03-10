@@ -208,16 +208,16 @@ print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
 
 # %%
 # 3- Tests des fonctions de génération de la base de ménages sur un seul carreau
-tile = carr200i.iloc[0]
-addresses = ban.loc[ban.tile_id == tile.tile_id]
-households_df = generate_households(tile, addresses)
+# tile = carr200i.iloc[0]
+# addresses = ban.loc[ban.tile_id == tile.tile_id]
+# households_df = generate_households(tile, addresses)
 
-if validate_households(households_df, tile):
-    print("Génération des ménages cohérente avec les données du carreau")
-else:
-    print("Error: les données générées sont incohérentes avec les informations du carreau.")
+# if validate_households(households_df, tile):
+#     print("Génération des ménages cohérente avec les données du carreau")
+# else:
+#     print("Error: les données générées sont incohérentes avec les informations du carreau.")
 
-print(households_df)
+# print(households_df)
 
 
 # %%
@@ -239,6 +239,8 @@ def generate_individuals(tile: pd.Series, addresses: pd.DataFrame):
 
     # Ajout de l'âge
     age_adultes  = np.concatenate([np.repeat(cat, tile[cat]) for cat in ADULT_AGE_COLUMNS_INT])
+    if (age_adultes.shape[0] - hh.NB_ADULTES.sum()) != 0:
+        print(hh)
     np.random.shuffle(age_adultes)
     age_mineurs  = np.concatenate([np.repeat(cat, tile[cat]) for cat in MINOR_AGE_COLUMNS_INT])
     np.random.shuffle(age_mineurs)
@@ -249,14 +251,14 @@ def generate_individuals(tile: pd.Series, addresses: pd.DataFrame):
     individuals_df = individuals_df.merge(pd.DataFrame.from_dict(AGES), on = "CATAGE")
 
     individuals_df['AGE'] = individuals_df.apply(lambda row: np.random.randint(row['INF'], row['SUP']+1), axis=1)
-    individuals_df.drop(['INF', 'SUP', 'LIM'], axis=1)
+    individuals_df = individuals_df.drop(['INF', 'SUP', 'LIM'], axis=1)
     # Info sur les ménages
     individuals_df = individuals_df.merge(hh[['tile_id','IDMEN','TAILLE','NIVEAU_VIE', 'MONOPARENT','GRD_MENAGE','x','y']], on = 'IDMEN')
     return individuals_df
 
 
 # %%
-tile = carr200i.iloc[1]
+tile = carr200i.iloc[2]
 addresses = ban.loc[ban.tile_id == tile.tile_id]
 individuals_df = generate_individuals(tile, addresses)
 
