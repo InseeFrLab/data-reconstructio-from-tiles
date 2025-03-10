@@ -1,3 +1,4 @@
+# %%
 # 1- fonctions pour générer la base de ménages carreau par carreau
 from typing import Dict, List, Tuple
 from pathlib import Path
@@ -5,11 +6,20 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import re
 import time
 
 MIN_HOUSEHOLD_SIZE = 1
 MAX_HOUSEHOLD_SIZE = 5
-ADULT_AGE_COLUMNS_INT = ['ind_18_24i', 'ind_25_39i', 'ind_40_54i', 'ind_55_64i', 'ind_65_79i', 'ind_80pi', 'ind_inci']
+ADULT_AGE_COLUMNS_INT: list[str] = ['ind_18_24i', 'ind_25_39i', 'ind_40_54i', 'ind_55_64i', 'ind_65_79i', 'ind_80pi', 'ind_inci']
+MINOR_AGE_COLUMNS_INT: list[str] = ["ind_0_3i", "ind_4_5i", "ind_6_10i", "ind_11_17i"]
+
+AGES = {
+    'CATAGE' : ADULT_AGE_COLUMNS_INT + MINOR_AGE_COLUMNS_INT
+}
+AGES['LIM'] = [re.findall(r'\d+', cat) if cat != 'ind_inci' else ['18', '80'] for cat in AGES['CATAGE']]
+AGES['INF'] = [int(lim[0]) for lim in AGES['LIM']]
+AGES['SUP'] = [int(lim[1]) if len(lim) == 2 else 105 for lim in AGES['LIM']]
 
 def generate_household_sizes(tile: pd.Series) -> List[int]:
     """
@@ -226,15 +236,23 @@ def generate_individuals(tile: pd.Series, addresses: pd.DataFrame):
     ])
 
     # Ajout de l'âge
+    age_adultes  = np.concatenate([np.repeat(cat, tile[cat]) for cat in ADULT_AGE_COLUMNS_INT])
+    np.random.shuffle(age_adultes)
+    age_mineurs  = np.concatenate([np.repeat(cat, tile[cat]) for cat in MINOR_AGE_COLUMNS_INT])
+    np.random.shuffle(age_mineurs)
 
-    # Ajout du niveau de vie individuel : ind_snv = somme des niveaux de vie winsorisés des individus
-    # Tous les individus d'un même ménage dispose du même niveau de vie
+    individuals_df = pd.DataFrame({'ID': individual_id, 'IDMEN': repeate_idmen, 'STATUT': statut, 'CATAGE': ''})
+    individuals_df.loc[individuals_df['STATUT'] == 'adulte', 'CATAGE'] = age_adultes
+    individuals_df.loc[individuals_df['STATUT'] == 'mineur', 'CATAGE'] = age_mineurs
+    individuals_df = individuals_df.merge(pd.DataFrame.from_dict(AGES), on = "CATAGE")
 
-    individuals_df = pd.DataFrame({'ID': individual_id, 'IDMEN': repeate_idmen, 'STATUT': statut})
+    individuals_df['AGE'] = individuals_df.apply(lambda row: np.random.randint(row['INF'], row['SUP']+1), axis=1)
+    individuals_df.drop(['INF', 'SUP', 'LIM'], axis=1)
+    # Info sur les ménages
     individuals_df = individuals_df.merge(hh[['tile_id','IDMEN','TAILLE','NIVEAU_VIE', 'MONOPARENT','GRD_MENAGE','x','y']], on = 'IDMEN')
     return individuals_df
 
-
+individuals_df = generate_individuals(tile, addresses)
 
 # %%
 # 4- Tests des fonctions de génération de la base de ménages
