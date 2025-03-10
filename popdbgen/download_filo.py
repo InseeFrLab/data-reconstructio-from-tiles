@@ -102,7 +102,8 @@ def refine_FILO(gdf: gpd.GeoDataFrame, territory: str | int = "france", coherenc
     gdfi["diff_ind"] = gdfi.indi - gdfi.inda
     gdfi["men_adult_inconsist"] = gdfi.meni > gdfi[name_integer_column(ADULT_AGE_COLUMNS)].sum(axis=1)
 
-    print(f"Somme des écarts absolus des comptages d'individus {str(gdfi.diff_ind.abs().sum())}")
+    # ou mettre en logging.debug
+    print(f"Somme des écarts absolus des comptages d'individus {str(gdfi.diff_ind.abs().sum())}")  # flush=True
     print(f"Nb de carreaux avec des écarts dans les comptages d'individus {str(sum(gdfi.diff_ind.abs() > 0 ))}")
     print(f"Nb de carreaux avec un nb d'adultes insuffisants {str(sum(gdfi.men_adult_inconsist))}")
 
