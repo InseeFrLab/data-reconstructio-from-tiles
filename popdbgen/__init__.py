@@ -1,3 +1,4 @@
+from .build_population import generate_households, generate_individuals, validate_households
 from .download_ban import download_BAN, get_BAN_URL, load_BAN
 from .download_filo import download_extract_FILO, get_FILO_filename, load_FILO, refine_FILO, round_alea
 from .fun_fusionner_ban_filo import intersect_ban_avec_carreaux
@@ -20,4 +21,7 @@ __all__ = [
     "merge_FILO_BAN",
     "generer_table_individus",
     "intersect_ban_avec_carreaux",
+    "generate_households",
+    "validate_households",
+    "generate_individuals",
 ]
