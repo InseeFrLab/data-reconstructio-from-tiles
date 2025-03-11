@@ -1,3 +1,4 @@
+from .build_population import generate_individuals, validate_households
 from .download_ban import download_BAN, get_BAN_URL, load_BAN
 from .download_filo import download_extract_FILO, get_FILO_filename, load_FILO, refine_FILO
 from .merge_filo_ban import merge_FILO_BAN
@@ -22,4 +23,6 @@ __all__ = [
     "ADULT_AGE_COLUMNS"
     # households_tile_generation
     "generate_households",
+    "generate_individuals",
+    "validate_households",
 ]
