@@ -99,6 +99,10 @@ def refine_FILO(gdf: gpd.GeoDataFrame, territory: str | int = "france", coherenc
     gdfi = pd.concat([gdf[["tile_id"] + NUMERIC_COLUMNS], gdfi], axis=1)
 
     gdfi.loc[(gdfi["meni"] == 0) * (gdfi["indi"] > 0), "meni"] = 1
+    gdfi.loc[(gdfi["meni"] == 1) * (gdfi["indi"] == 1), "men_1indi"] = 1
+    gdfi.loc[(gdfi["meni"] == 1) * (gdfi["indi"] == 1), "men_5indi"] = 0
+    gdfi.loc[(gdfi["meni"] == 1) * (gdfi["indi"] >= 5), "men_1indi"] = 0
+    gdfi.loc[(gdfi["meni"] == 1) * (gdfi["indi"] >= 5), "men_5indi"] = 1
 
     gdfi["inda"] = gdfi[name_integer_column(ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS)].sum(axis=1)
     gdfi["diff_ind"] = gdfi.indi - gdfi.inda
