@@ -23,7 +23,7 @@ def merge_FILO_BAN(
     ban_df: pd.DataFrame | None = None,
     territory: str = "france",
     tile_id_column: str = "tile_id",
-):
+) -> pd.DataFrame:
     """
     Args:
         reduce_f (function): Function to generate DataFrame from a row of the filo_df
