@@ -93,3 +93,11 @@ indivd = pd.concat(indiv)
 
 print(indivd.shape[0] - carr200i.iloc[0:n].indi.sum())
 print(indivd['IDMEN'].nunique() - carr200i.iloc[0:n].meni.sum())
+
+
+ADULT_AGE_COLUMNS_INT: list[str] = ['ind_18_24i', 'ind_25_39i', 'ind_40_54i', 'ind_55_64i', 'ind_65_79i', 'ind_80pi', 'ind_inci']
+MINOR_AGE_COLUMNS_INT: list[str] = ["ind_0_3i", "ind_4_5i", "ind_6_10i", "ind_11_17i"]
+
+print(indivd["CATAGE"].value_counts())
+print(carr200i[ADULT_AGE_COLUMNS_INT + MINOR_AGE_COLUMNS_INT].sum())
+# %%
