@@ -26,8 +26,16 @@ AGES["SUP"] = [int(lim[1]) if len(lim) == 2 else 105 for lim in AGES["LIM"]]
 
 def generate_household_sizes(tile: pd.Series) -> list[int]:
     """
-    Initialise la liste de tailles des ménages en fonction du
-    nombre de ménages d'une personne et de ménages de 5 personnes ou plus.
+    Initialise la liste de tailles des ménages en fonction du nombre de ménages
+    d'une personne et de ménages de 5 personnes ou plus.
+
+    Args:
+        tile (pd.Series): Informations sur le carreau,
+    notamment le nombre de ménages (`meni`), de ménages d'une personne (`men_1indi`),
+    et de ménages de cinq personnes ou plus (`men_5indi`).
+
+    Returns:
+        list: La liste de tailles de ménages.
     """
     nb_households = int(tile["meni"])
     nb_1person = int(tile["men_1indi"])
@@ -74,8 +82,15 @@ def generate_household_sizes(tile: pd.Series) -> list[int]:
 
 def adjust_household_sizes(sizes: list[int], total_individuals: int) -> list[int]:
     """
-    Met à jour la liste des tailles des ménages en fonction du nombre d'individus dans
-    le carreau.
+    Met à jour la liste des tailles des ménages en fonction du nombre d'individus
+    dans le carreau.
+
+    Args:
+        sizes (list): La liste des tailles de ménages.
+        total_individuals (int): Le nombre total d'individus dans le carreau.
+
+    Returns:
+        list: La liste ajustée de tailles de ménages.
     """
     missing_individuals = total_individuals - sum(sizes)
     adjustable_indices = [i for i, size in enumerate(sizes) if MIN_HOUSEHOLD_SIZE < size < MAX_HOUSEHOLD_SIZE - 1]
@@ -111,7 +126,14 @@ def adjust_household_sizes(sizes: list[int], total_individuals: int) -> list[int
 
 def allocate_adults(tile: pd.Series, sizes: list[int]) -> list[int]:
     """
-    Alloue un nombre d'adultes à chacun des ménages du carreau
+    Alloue un nombre d'adultes à chacun des ménages du carreau.
+
+    Args:
+        tile (pd.Series): informations sur le carreau, notamment le nombre total d'adultes.
+        sizes (list): La liste des tailles de ménages.
+
+    Returns:
+        list: entiers représentant le nombre d'adultes dans chaque ménage.
     """
     if len(sizes) == 0:
         return []
@@ -150,20 +172,27 @@ def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> list[dict]:
     if addresses.empty:
         return [
             {"x": np.random.uniform(tile.XSO, tile.XNE + 1), "y": np.random.uniform(tile.YSO, tile.YNE + 1)}
-            for _ in range(tile.meni)
+            for _ in range(tile["meni"])
         ]
     else:
         # Tirage des adresses:
         # Possibilité de tirer plusieurs fois la même adresse.
         return [
             {"x": addresses.x.iloc[i].tolist(), "y": addresses.y.iloc[i].tolist()}
-            for i in np.random.randint(low=addresses.shape[0], high=None, size=tile.meni)
+            for i in np.random.randint(low=addresses.shape[0], high=None, size=tile["meni"])
         ]
 
 
 def generate_households(tile: pd.Series, addresses: pd.DataFrame) -> pd.DataFrame:  # Generator[dict]:
     """
-    Génère une base de ménages d'un carreau
+    Génère une base de ménages d'un carreau.
+
+    Args:
+        tile (pd.Series): informations sur le carreau
+        addresses (pd.DataFrame): adresses contenues dans le carreau
+
+    Returns:
+        pd.DataFrame: Base de ménages et leurs caractéristiques.
     """
     sizes = generate_household_sizes(tile)
     sizes = adjust_household_sizes(sizes, int(tile["indi"]))
@@ -223,6 +252,14 @@ def validate_households(households: pd.DataFrame, tile: pd.Series) -> dict:
     L'algorithme ne permet d'assurer que le respect du nombre d'individus et de ménages
     et du nombre d'adultes et de mineurs.
     La comparaison sur la structure des ménages est fournie à titre indicatif.
+
+
+    Args:
+        households (pd.DataFrame): Base de ménages générée par `generate_households`
+        tile (pd.Series): informations sur le carreau
+
+    Returns:
+        dict: Ecarts aux données entières.
     """
     total_individuals = int(tile["indi"])
     total_monoparents = int(tile["men_fmpi"])
@@ -241,7 +278,17 @@ def validate_households(households: pd.DataFrame, tile: pd.Series) -> dict:
     return checks
 
 
-def generate_individuals(tile: pd.Series, addresses: pd.DataFrame):
+def generate_individuals(tile: pd.Series, addresses: pd.DataFrame) -> pd.DataFrame:
+    """
+    Génère une base d'individus d'un carreau.
+
+    Args:
+        tile (pd.Series): informations sur le carreau
+        addresses (pd.DataFrame): adresses contenues dans le carreau
+
+    Returns:
+        pd.DataFrame: Base d'individus et leurs caractéristiques.
+    """
     # Génération de la base de ménages
     hh = generate_households(tile, addresses)
     # Génération d'une base d'individus basée sur la base de ménages
