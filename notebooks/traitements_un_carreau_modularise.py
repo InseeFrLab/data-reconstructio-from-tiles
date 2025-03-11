@@ -76,9 +76,14 @@ def allocate_adults(tile: pd.Series, sizes: List[int]) -> List[int]:
     adults = [1] * len(sizes)
 
     # Tirage des ménages monoparentaux (1 adulte, plusieurs individus)
+    # TODO gérer cas dégénérés où le nb d'adultes n'est pas atteignable avec la config de ménages du carreau
     multi_person_indices = [i for i, size in enumerate(sizes) if size > 1]
     if multi_person_indices:
         single_parent_indices = set(np.random.choice(multi_person_indices, nb_single_parent, replace=False))
+        max_adults_possible = sum([sizes[i] if i not in single_parent_indices else 1 for i in range(len(sizes))])
+        # while max_adults_possible < nb_adults:
+        #     single_parent_indices = set(np.random.choice(multi_person_indices, nb_single_parent, replace=False))
+        #     max_adults_possible = sum([sizes[i] if i not in single_parent_indices else 1 for i in range(len(sizes))])
         # Pour les autres ménages de 2 personnes au moins, on ajoute un second adulte
         for i in multi_person_indices:
             if i not in single_parent_indices and adults[i] < sizes[i]:
@@ -123,14 +128,14 @@ def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> List[dict]:
         # Possibilité de tirer plusieurs fois la même adresse.
         return [
             {
-                "x": addresses.x[i],
-                "y": addresses.y[i]
+                "x": addresses.x.iloc[i].tolist(),
+                "y": addresses.y.iloc[i].tolist()
             }
             for i in np.random.randint(low=addresses.shape[0], high=None, size=tile.meni)
         ]
 
 
-def generate_households(tile: pd.Series, addresses: pd.DataFrame) -> Generator[dict]:
+def generate_households(tile: pd.Series, addresses: pd.DataFrame) -> pd.DataFrame: #Generator[dict]:
     """
     Génère une base de ménages d'un carreau
     """
@@ -146,20 +151,39 @@ def generate_households(tile: pd.Series, addresses: pd.DataFrame) -> Generator[d
 
     niveau_vie_ind_hh = [tile['ind_snv']*p/s for p, s in zip(parts, sizes)]
 
-    drawn_addresses = draw_adresses(tile, addresses)
-    for i, (size, adult_count, addr) in enumerate(zip(sizes, adults, drawn_addresses)):
-        yield {
+    # drawn_addresses = draw_adresses(tile, addresses)
+    # for i, (size, adult_count, addr) in enumerate(zip(sizes, adults, drawn_addresses)):
+    #     yield {
+    #         "IDMEN": f"{tile['tile_id']}_{i+1}",
+    #         "TAILLE": size,
+    #         "NB_ADULTES": adult_count,
+    #         "NB_MINEURS": size - adult_count,
+    #         "tile_id": tile['tile_id'],
+    #         "MONOPARENT": adult_count == 1 and size > adult_count,
+    #         "GRD_MENAGE": size >= 5,
+    #         "NIVEAU_VIE": niveau_vie_ind_hh,
+    #         "x": addr['x'],
+    #         "y": addr['y']
+    #     }
+    households = []
+    for i, (size, adult_count, nivvie) in enumerate(zip(sizes, adults, niveau_vie_ind_hh)):
+        households.append({
             "IDMEN": f"{tile['tile_id']}_{i+1}",
             "TAILLE": size,
             "NB_ADULTES": adult_count,
             "NB_MINEURS": size - adult_count,
             "tile_id": tile['tile_id'],
-            "MONOPARENT": adult_count == 1 and size > adult_count,
-            "GRD_MENAGE": size >= 5,
-            "NIVEAU_VIE": niveau_vie_ind_hh,
-            "x": addr['x'],
-            "y": addr['y']
-        }
+            "NIVEAU_VIE": nivvie
+        })
+    households_df = pd.DataFrame(households)
+    households_df["MONOPARENT"] = (households_df["NB_ADULTES"] == 1) * (households_df["NB_MINEURS"] > 0)
+    households_df["GRD_MENAGE"] = households_df["TAILLE"] >= 5
+
+    drawn_addresses = pd.DataFrame(draw_adresses(tile, addresses))
+
+    households_df = pd.concat([households_df.reset_index(drop=True), drawn_addresses[['x','y']].reset_index(drop=True)], axis=1)
+
+    return households_df
 
 def validate_households(households: pd.DataFrame, tile: pd.Series) -> bool:
     """
@@ -218,6 +242,13 @@ print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
 # print(households_df)
 
 
+full_hh_database = merge_FILO_BAN(generate_households, filo_df=carr200i, ban_df=ban)
+res=pd.concat([
+    pd.DataFrame(full_hh_database.groupby(['tile_id'])['NB_ADULTES'].sum().reset_index(name='n1')),
+    pd.DataFrame(carr200i[ADULT_AGE_COLUMNS_INT].sum(axis=1).reset_index(name='n2'))
+], axis = 1)
+sum(res.n1 != res.n2)
+
 # %%
 # 4- Génération de la base d'individus à partir d'un carreau et des adresses
 def generate_individuals(tile: pd.Series, addresses: pd.DataFrame):
@@ -263,21 +294,83 @@ individuals_df = generate_individuals(tile, addresses)
 # %%
 # 4- Tests des fonctions de génération de la base de ménages
 
-
 start_time = time.time()
-individuals_df_list = []
 
+np.random.seed(1234)
+hh = []
 for i in range(carr200i.shape[0]):
     print(i)
     tile = carr200i.iloc[i]
     addresses = ban.loc[ban.tile_id == tile.tile_id]
-    individuals_df_list.append(generate_individuals(tile, addresses))
+    hh.append(generate_households(tile, addresses))
 
-individuals_df = pd.concat(individuals_df_list)
+i = 69
+tile = carr200i.iloc[i]
+addresses = ban.loc[ban.tile_id == tile.tile_id]
+nb_households = int(tile['meni'])
+nb_1person = int(tile['men_1indi'])
+nb_5person_plus = int(tile['men_5indi'])
 
+sizes = [MIN_HOUSEHOLD_SIZE] * nb_1person + [MAX_HOUSEHOLD_SIZE] * nb_5person_plus
+sizes += [2] * (nb_households - len(sizes))
+
+total_individuals = int(tile.indi)
+missing_individuals = total_individuals - sum(sizes)
+adjustable_indices = [i for i, size in enumerate(sizes) if MIN_HOUSEHOLD_SIZE < size < MAX_HOUSEHOLD_SIZE-1]
+
+# Les individus viennent compléter les ménages de taille intermédiaire
+while missing_individuals > 0 and adjustable_indices:
+    index = np.random.choice(adjustable_indices)
+    sizes[index] += 1
+    missing_individuals -= 1
+    if sizes[index] == MAX_HOUSEHOLD_SIZE-1:
+        adjustable_indices.remove(index)
+
+# Ajuste la taille des ménages de 5 personnes ou plus s'il reste des individus à placer
+adjustable_indices = [i for i, size in enumerate(sizes) if size >= MAX_HOUSEHOLD_SIZE]
+while missing_individuals > 0 and adjustable_indices:
+    index = np.random.choice(adjustable_indices)
+    sizes[index] += 1
+    missing_individuals -= 1
+
+nb_adults = int(sum(tile[ADULT_AGE_COLUMNS_INT]))
+nb_minors = int(sum(tile[MINOR_AGE_COLUMNS_INT]))
+nb_single_parent = int(tile['men_fmpi'])
+nb_single_parent = nb_single_parent if nb_minors >= nb_single_parent else nb_minors
+
+# Tous les ménages ont au moins un adulte
+adults = [1] * len(sizes)
+
+# Tirage des ménages monoparentaux (1 adulte, plusieurs individus)
+multi_person_indices = [i for i, size in enumerate(sizes) if size > 1]
+if multi_person_indices:
+    single_parent_indices = set(np.random.choice(multi_person_indices, nb_single_parent, replace=False))
+    max_adults_possible = sum([sizes[i] if i not in single_parent_indices else 1 for i in range(len(sizes))])
+    # while max_adults_possible < nb_adults and attempt < 10:
+    #     single_parent_indices = set(np.random.choice(multi_person_indices, nb_single_parent, replace=False))
+    #     print(single_parent_indices)
+    #     max_adults_possible = sum([sizes[i] if i not in single_parent_indices else 1 for i in range(len(sizes))])
+    #     print(max_adults_possible)
+    # Pour les autres ménages de 2 personnes au moins, on ajoute un second adulte
+    for i in multi_person_indices:
+        if i not in single_parent_indices and adults[i] < sizes[i]:
+            adults[i] += 1
+
+# Distribue les adultes restants dans les ménages éligibles
+remaining_adults = nb_adults - sum(adults)
+while remaining_adults > 0:
+    eligible_indices = [i for i, (size, adult) in enumerate(zip(sizes, adults)) if adult < size and i not in single_parent_indices]
+    if not eligible_indices:
+        break
+    index = np.random.choice(eligible_indices)
+    adults[index] += 1
+    remaining_adults -= 1
+
+generate_households(tile, addresses)
+
+hhd = pd.concat(hh)
 end_time = time.time()
 
 print(f"Temps de calcul : {end_time - start_time:.2f} secondes")
-print(individuals_df.head())
 
 # %%
