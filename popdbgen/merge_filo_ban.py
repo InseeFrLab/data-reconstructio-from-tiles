@@ -78,8 +78,6 @@ def merge_FILO_BAN(
     ban: pd.DataFrame = load_BAN(territory) if ban_df is None else ban_df
     tiled_ban = ban.groupby(tile_id_column, sort=False)
 
-    print(tiled_ban)
-
     # Function to apply reduce_f to a given row and to each addresses matching it
     def process_tile(tile: pd.Series) -> list[dict]:
         idcar = tile[tile_id_column]
