@@ -1,12 +1,8 @@
 # %%
-# 1- fonctions pour générer la base de ménages carreau par carreau
-from typing import Dict, List
-from pathlib import Path
+# 1- Imports
 import geopandas as gpd
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import time
+
 from popdbgen import generate_households, load_FILO, load_BAN, merge_FILO_BAN
 
 

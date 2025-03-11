@@ -3,7 +3,7 @@ from collections.abc import Generator, Sequence
 import numpy as np
 import pandas as pd
 
-from popdbgen import ADULT_AGE_COLUMNS
+from .download_filo import ADULT_AGE_COLUMNS
 
 
 def generate_household_sizes(tile: pd.Series) -> list[int]:
