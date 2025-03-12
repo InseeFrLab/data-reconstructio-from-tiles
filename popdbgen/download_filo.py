@@ -13,8 +13,9 @@ from .utils import DATA_DIR, territory_code
 
 # URL par défaut du fichier à télécharger
 FILO_URL: str = "https://www.insee.fr/fr/statistiques/fichier/7655475/Filosofi2019_carreaux_200m_gpkg.zip"
-ADULT_AGE_COLUMNS: list[str] = ["ind_18_24", "ind_25_39", "ind_40_54", "ind_55_64", "ind_65_79", "ind_80p", "ind_inc"]
 MINOR_AGE_COLUMNS: list[str] = ["ind_0_3", "ind_4_5", "ind_6_10", "ind_11_17"]
+ADULT_AGE_COLUMNS: list[str] = ["ind_18_24", "ind_25_39", "ind_40_54", "ind_55_64", "ind_65_79", "ind_80p", "ind_inc"]
+ALL_AGE_COLUMNS: list[str] = MINOR_AGE_COLUMNS + ADULT_AGE_COLUMNS
 HOUSEHOLD_IND_COLUMNS: list[str] = [
     "men_1ind",  # Nombre de ménages d'un seul individu
     "men_5ind",  # Nombre de ménages de 5 individus ou plus
@@ -128,14 +129,11 @@ def refine_FILO_tile(s: pd.Series) -> dict:
             o[c] += 1
     elif missing_indiv < 0:
         # We added to many adults to match households and now need to remove (children necessarily)
-        eligible_cols = [c for c in ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS if o[c] > 0]
+        eligible_cols = [c for c in MINOR_AGE_COLUMNS if o[c] > 0]
         # Sort by bump score, starting with the lowest
         cols = sorted(eligible_cols, key=lambda c: bumps[c], reverse=False)
         for c in cols[:-missing_indiv]:
             o[c] -= 1
-
-    o["moins18"] = sum(int(o[k]) for k in MINOR_AGE_COLUMNS)
-    o["plus18"] = sum(int(o[k]) for k in ADULT_AGE_COLUMNS)
 
     o["men_1ind"], remain_men_1ind = divmod1(s["men_1ind"])
     o["men_5ind"], remain_men_5ind = divmod1(s["men_5ind"])
@@ -144,8 +142,8 @@ def refine_FILO_tile(s: pd.Series) -> dict:
     # ind is bounded below by:
     #   men_1ind + 5*men_5ind + 2*(men-men_1ind-men_5ind)
     # Meaning
-    #   ind >= 2*men + 3 * men_5ind - men_1ind
-    # a)  men_1ind >= 2*men + 3 * men_5ind - ind
+    #   ind >= 2*men + 3*men_5ind - men_1ind
+    # a)  men_1ind >= 2*men + 3*men_5ind - ind
     # b) 3*men_5ind <= ind - 2*men + men_1ind
     #
     # Besides, if men_5ind == 0, then ind is bounded above by:
@@ -197,6 +195,8 @@ def refine_FILO(raw_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     gdf = gpd.GeoDataFrame(geometry=raw_gdf.geometry, index=raw_gdf.index)
     gdf = gdf.join(raw_gdf.apply(refine_FILO_tile, axis=1, result_type="expand").astype(int))
     gdf[NUMERIC_COLUMNS] = raw_gdf[NUMERIC_COLUMNS]
+    gdf["moins18"] = gdf[MINOR_AGE_COLUMNS].sum(axis=1)
+    gdf["plus18"] = gdf[ADULT_AGE_COLUMNS].sum(axis=1)
 
     # Quality checks
     diff_age_ind = gdf.ind - gdf.plus18 - gdf.moins18
@@ -221,11 +221,15 @@ def coherence_check(tiled_filo: pd.DataFrame):
     return None
 
 
-def load_FILO(territory: str = "france", check_coherence: bool = False, dataDir: Path = DATA_DIR):
+def load_raw_FILO(territory: str = "france", dataDir: Path = DATA_DIR):
     download_extract_FILO()
     file_path = get_FILO_filename(territory, dataDir=dataDir)
-    tiled_filo = gpd.read_file(file_path)
-    refined_filo = refine_FILO(tiled_filo)
+    return gpd.read_file(file_path)
+
+
+def load_FILO(territory: str = "france", check_coherence: bool = False, dataDir: Path = DATA_DIR):
+    raw_filo = load_raw_FILO(territory=territory, dataDir=dataDir)
+    refined_filo = refine_FILO(raw_filo)
     if check_coherence:
         coherence_check(refined_filo)
     return refined_filo
