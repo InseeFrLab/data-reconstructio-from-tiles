@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .utils import DATA_DIR, territory_code
+from .utils import DATA_DIR, territory_code, territory_epsg
 
 # Template d'URL du fichier de la base d'adresses nationale (BAN)
 BAN_TEMPLATE_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-{}.csv.gz"
@@ -57,12 +57,12 @@ def download_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteI
     return file_path
 
 
-def load_BAN(territory: str = "france") -> pd.DataFrame:
+def load_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> pd.DataFrame:
     # Download
     territory = territory_code(territory)
-    ban_file = download_BAN(territory)
+    ban_file = download_BAN(territory=territory, dataDir=dataDir, overwriteIfExists=overwriteIfExists)
 
-    epsg = {"france": "2154", "974": "2975"}.get(territory_code(territory), "2154")
+    epsg = territory_epsg(territory)
 
     ban = pd.read_csv(ban_file, sep=";", usecols=["x", "y"])
 

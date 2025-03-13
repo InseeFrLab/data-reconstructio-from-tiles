@@ -1,5 +1,6 @@
 import random
-from collections.abc import Callable, Generator, Sequence
+from collections.abc import Callable, Generator
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
@@ -8,6 +9,21 @@ from shapely.geometry import Point
 
 from .download_ban import load_BAN
 from .download_filo import ADULT_AGE_COLUMNS, ALL_AGE_COLUMNS, MINOR_AGE_COLUMNS, load_FILO
+from .utils import territory_crs
+
+age_categories = {  # adult (T/F), min age, max age (included)
+    "ind_0_3": (False, 0, 3),
+    "ind_4_5": (False, 4, 5),
+    "ind_6_10": (False, 6, 10),
+    "ind_11_17": (False, 11, 17),
+    "ind_18_24": (True, 18, 24),
+    "ind_25_39": (True, 25, 39),
+    "ind_40_54": (True, 40, 54),
+    "ind_55_64": (True, 55, 64),
+    "ind_65_79": (True, 65, 79),
+    "ind_80p": (True, 80, 105),
+    "ind_inc": (True, 18, 80),
+}
 
 
 def generate_household_sizes(tile: pd.Series) -> list[int]:
@@ -76,10 +92,14 @@ def generate_household_sizes(tile: pd.Series) -> list[int]:
     return sizes
 
 
-def allocate_ages(tile: pd.Series, sizes: Sequence[int]) -> list[dict]:
+def get_households_with_ages(tile: pd.Series) -> list[dict[str, Any]]:
     """
-    Alloue un nombre d'adultes à chacun des ménages du carreau
+    Alloue un nombre d'adultes à chacun des ménages du carreau.
+
+    Returns:
+        Generator[dict]: Liste des ménages générés avec un dictionnaire de features
     """
+    sizes = generate_household_sizes(tile)
     if len(sizes) == 0:
         return []
     if sum(sizes) != tile.ind or len(sizes) != tile.men:
@@ -100,28 +120,33 @@ def allocate_ages(tile: pd.Series, sizes: Sequence[int]) -> list[dict]:
     ):
         raise Exception(f"[allocate_adults] TILE {tile.tile_id}: Incoherent input tile!")
 
-    households_ages = [{c: 0 for c in ALL_AGE_COLUMNS} for _ in range(tile.men)]
-    # Start with at least one adult per household (and no minor for now)
-    for ages in households_ages:
-        ages["plus18"] = 1
-        ages["moins18"] = 0
-        ages[adult_ages.pop()] += 1
+    households: list[dict[str, Any]] = [{c: 0 for c in ALL_AGE_COLUMNS} for _ in sizes]
+    for i, (hh, size) in enumerate(zip(households, sizes, strict=True)):
+        hh["TILE_ID"] = tile.tile_id
+        hh["HOUSEHOLD_ID"] = f"{tile['tile_id']}_{i+1}"
+        hh["SIZE"] = size
+        hh["GRD_MENAGE"] = size >= 5
+        # Start with at least one adult per household (and no minor for now)
+        hh["NB_ADULTS"] = 1
+        hh["NB_MINORS"] = 0
+        hh[adult_ages.pop()] += 1
 
-    # Successively dispatch the remaining adult ages in eligible households
+    # Successively distribute the remaining adult ages in eligible households
     while adult_ages:
-        eligible_indices = [i for i, ages in enumerate(households_ages) if ages["plus18"] < sizes[i]]
+        eligible_indices = [i for i, hh in enumerate(households) if hh["NB_ADULTS"] < hh["SIZE"]]
         if not eligible_indices:
             break
-        index = np.random.choice(eligible_indices)
-        households_ages[index][adult_ages.pop()] += 1
-        households_ages[index]["plus18"] += 1
+        chosen_hh = households[np.random.choice(eligible_indices)]
+        chosen_hh[adult_ages.pop()] += 1
+        chosen_hh["NB_ADULTS"] += 1
 
-    for i, ages in enumerate(households_ages):
-        ages["moins18"] = sizes[i] - ages["plus18"]
-        for _ in range(ages["moins18"]):
-            ages[minor_ages.pop()] += 1
-
-    return households_ages
+    # Then distribute the minor ages in the eligible households
+    for hh in households:
+        hh["NB_MINORS"] = hh["SIZE"] - hh["NB_ADULTS"]
+        for _ in range(hh["NB_MINORS"]):
+            hh[minor_ages.pop()] += 1
+        hh["MONOPARENT"] = hh["NB_ADULTS"] == 1 and hh["NB_ADULTS"] > 1
+    return households
 
 
 def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> list[Point]:
@@ -132,7 +157,7 @@ def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> list[Point]:
         addresses (pd.DataFrame): adresses contenues dans le carreau
 
     Returns:
-        pd.DataFrame: Coordonnées x, y  des adresses tirées pour les ménages du carreau.
+        list[Point]: Points (x, y) des adresses tirées pour les ménages du carreau.
         Contient autant de lignes que le carreau contient de ménages.
     """
     # Si aucune adresses n'est disponible, des points fictifs sont créés au sein du carreau
@@ -151,53 +176,69 @@ def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> list[Point]:
         ]
 
 
-def generate_tile_households(tile: pd.Series, addresses: pd.DataFrame) -> Generator[dict]:
+def generate_tile_households(tile: pd.Series, addresses: pd.DataFrame) -> Generator[dict[str, Any]]:
     """
     Génère une base de ménages d'un carreau
     """
-    sizes = generate_household_sizes(tile)
-    households_ages = allocate_ages(tile, sizes)
+    households = get_households_with_ages(tile)
+    drawn_addresses = draw_adresses(tile, addresses)
 
     # Le niveau de vie des individus dans le ménage
     # On répartit le total des niveaux de vie entre les ménages
     # Les niveaux de vie des individus d'un même ménage sont identiques
-    parts = np.random.uniform(0, 1, len(sizes))  # tirage uniforme potentiellement trop perturbateur.
-    parts = parts / sum(parts)
+    parts = np.random.uniform(0, 1, tile.men)  # tirage uniforme, potentiellement trop perturbateur...
+    norm_parts = sum(parts)
 
-    niveau_vie_ind_hh = [tile.ind_snv * p / s for p, s in zip(parts, sizes, strict=True)]
+    for hh, part, addr in zip(households, parts, drawn_addresses, strict=True):
+        hh["NIVEAU_VIE"] = tile.ind_snv * part / norm_parts / hh["SIZE"]
+        hh["geometry"] = addr
+        yield hh
 
-    drawn_addresses = draw_adresses(tile, addresses)
-    for i, (size, ages, nivvie, addr) in enumerate(
-        zip(sizes, households_ages, niveau_vie_ind_hh, drawn_addresses, strict=True)
-    ):
-        yield {
-            "IDMEN": f"{tile['tile_id']}_{i+1}",
-            "TAILLE": size,
-            "NB_ADULTES": ages["plus18"],
-            "NB_MINEURS": ages["moins18"],
-            "NIVEAU_VIE": nivvie,
-            "MONOPARENT": ages["plus18"] == 1 and size > 1,
-            "GRD_MENAGE": size >= 5,
-            "tile_id": tile.tile_id,
-            "geometry": addr,
+
+def generate_population(hh: dict) -> Generator[dict]:
+    """
+    Génère une base d'individus d'un ménage donné
+
+    Args:
+        hh (dict): Information sur un ménage
+
+    Returns:
+        Generator[dict]: Base d'individus et leurs caractéristiques.
+    """
+    # Génération d'une base d'individus basée sur la base de ménages
+    individuals = [
+        {
+            "IND_ID": f"{hh["HOUSEHOLD_ID"]}_{i+1}",
+            "HOUSEHOLD_ID": hh["HOUSEHOLD_ID"],
+            "HOUSEHOLD_SIZE": hh["SIZE"],
+            "GRD_MENAGE": hh["GRD_MENAGE"],
+            "MONOPARENT": hh["MONOPARENT"],
+            "NIVEAU_VIE": hh["NIVEAU_VIE"],
+            "TILE_ID": hh["TILE_ID"],
+            "geometry": hh["geometry"],
         }
-
-
-# Fonction de test
-def test(reduce_f: Callable[[pd.Series, pd.DataFrame], pd.DataFrame]):
-    # TODO
-    # - Build dummy FILO tile Series and BAN addresses dataframe
-    # - Call "reduce_f" on it
-    # - Implement some sanity check on the output
-    pass
+        for i in range(hh["SIZE"])
+    ]
+    i = 0
+    for age_cat in ALL_AGE_COLUMNS:
+        adult, age_min, age_max = age_categories[age_cat]
+        for _ in range(hh[age_cat]):
+            ind = individuals[i]
+            i += 1
+            ind["AGE_CAT"] = age_cat
+            ind["AGE"] = np.random.randint(age_min, age_max + 1)
+            ind["ADULT"] = adult
+            ind["STATUT"] = "ADULT" if adult else "MINOR"
+            yield ind
 
 
 def generate_households(
-    tile_household_generator: Callable[[pd.Series, pd.DataFrame], Generator[dict]] = generate_tile_households,
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
     territory: str = "france",
-) -> gpd.GeoDataFrame:
+    tile_households_generator: Callable[[pd.Series, pd.DataFrame], Generator[dict]] = generate_tile_households,
+    population_generator: Callable[[dict], Generator[dict]] = generate_population,
+) -> Generator[dict]:
     """
     Args:
         tile_household_generator (Callable[[pd.Series, pd.DataFrame], Generator[dict]],optional):
@@ -218,15 +259,75 @@ def generate_households(
     tiled_ban = ban.groupby("tile_id", sort=False)
 
     # Function to apply the tile_household_generator to a given row and the addresses matching it
-    def generate_all_tile_households(tile: pd.Series) -> Generator[dict]:
-        idcar = tile.tile_id
-        if idcar in tiled_ban.groups:
-            addresses = tiled_ban.get_group(idcar).sample(frac=1).reset_index(drop=True)
+    def get_addresses(tile: pd.Series) -> pd.DataFrame:
+        if tile.tile_id in tiled_ban.groups:
+            return tiled_ban.get_group(tile.tile_id).sample(frac=1).reset_index(drop=True)
         else:
-            addresses = pd.DataFrame(columns=ban.columns)
-        return generate_tile_households(tile, addresses)
+            return pd.DataFrame(columns=ban.columns)
 
+    for _, row in filo.iterrows():
+        yield from tile_households_generator(row, get_addresses(row))
+
+
+def get_households_gdf(
+    filo_df: gpd.GeoDataFrame | None = None,
+    ban_df: pd.DataFrame | None = None,
+    territory: str = "france",
+    tile_households_generator: Callable[[pd.Series, pd.DataFrame], Generator[dict]] = generate_tile_households,
+    population_generator: Callable[[dict], Generator[dict]] = generate_population,
+) -> gpd.GeoDataFrame:
+    households = generate_households(
+        filo_df=filo_df,
+        ban_df=ban_df,
+        territory=territory,
+        tile_households_generator=tile_households_generator,
+        population_generator=population_generator,
+    )
+    return gpd.GeoDataFrame(data=households, geometry="geometry", crs=territory_crs(territory))
+
+
+def get_population_gdf(
+    filo_df: gpd.GeoDataFrame | None = None,
+    ban_df: pd.DataFrame | None = None,
+    territory: str = "france",
+    tile_households_generator: Callable[[pd.Series, pd.DataFrame], Generator[dict]] = generate_tile_households,
+    population_generator: Callable[[dict], Generator[dict]] = generate_population,
+) -> gpd.GeoDataFrame:
+    households = generate_households(
+        filo_df=filo_df,
+        ban_df=ban_df,
+        territory=territory,
+        tile_households_generator=tile_households_generator,
+        population_generator=population_generator,
+    )
     return gpd.GeoDataFrame(
-        [households for _, row in filo.iterrows() for households in generate_all_tile_households(row)],
+        data=[ind for hh in households for ind in population_generator(hh)],
         geometry="geometry",
+        crs=territory_crs(territory),
+    )
+
+
+def get_households_population_gdf(
+    filo_df: gpd.GeoDataFrame | None = None,
+    ban_df: pd.DataFrame | None = None,
+    territory: str = "france",
+    tile_households_generator: Callable[[pd.Series, pd.DataFrame], Generator[dict]] = generate_tile_households,
+    population_generator: Callable[[dict], Generator[dict]] = generate_population,
+) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
+    households = list(
+        generate_households(
+            filo_df=filo_df,
+            ban_df=ban_df,
+            territory=territory,
+            tile_households_generator=tile_households_generator,
+            population_generator=population_generator,
+        )
+    )
+    return (
+        gpd.GeoDataFrame(data=households, geometry="geometry", crs=territory_crs(territory)),
+        gpd.GeoDataFrame(
+            data=[ind for hh in households for ind in population_generator(hh)],
+            geometry="geometry",
+            crs=territory_crs(territory),
+        ),
     )

@@ -32,3 +32,14 @@ def territory_code(territory: str | int) -> str:
         return "974"
     else:
         raise NameError(f"Territory not supported: {territory}")
+
+
+def territory_epsg(territory: str | int) -> int:
+    return {
+        "france": 2154,
+        "974": 2975,
+    }.get(territory_code(territory), 2154)
+
+
+def territory_crs(territory: str | int) -> str:
+    return f"EPSG:{territory_epsg(territory)}"
