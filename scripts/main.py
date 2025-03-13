@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from popdbgen import DATA_DIR, get_households_population_gdf, load_BAN, load_FILO, territory_epsg
+from popdbgen import DATA_DIR, get_households_population_gdf, load_BAN, load_FILO
 
 
 def main(dataDir: Path = DATA_DIR, territory: str = "france", seed: int = 1703):
@@ -27,8 +27,8 @@ def main(dataDir: Path = DATA_DIR, territory: str = "france", seed: int = 1703):
     households, population = get_households_population_gdf(filo_df=filo, ban_df=ban)
 
     # Export
-    households.to_file(dataDir / "households.gpkg", driver="GPKG", crs=f"EPSG:{territory_epsg(territory)}")
-    population.to_file(dataDir / "population.gpkg", crs=f"EPSG:{territory_epsg(territory)}", driver="GPKG")
+    households.to_file(dataDir / f"households_{territory}.gpkg", driver="GPKG")
+    population.to_file(dataDir / f"population_{territory}.gpkg", driver="GPKG")
 
 
 if __name__ == "__main__":

@@ -31,3 +31,6 @@ pre-commit run --all-files
 # Download data
 python scripts/download_FILO.py
 python scripts/download_BAN.py
+
+# Test generation of La Reunion database
+python scripts/main.py -t 974
