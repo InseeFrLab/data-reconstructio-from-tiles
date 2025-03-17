@@ -8,8 +8,8 @@ sudo apt install tree -y
 
 # Clone project
 cd ~/work/
-git clone https://github.com/JulienJamme/donnees-synth-geo.git
-cd donnees-synth-geo
+git clone https://github.com/InseeFrLab/data-reconstructio-from-tiles.git
+cd data-reconstructio-from-tiles
 
 # Install project (requirements and main package)
 pip install -e .
