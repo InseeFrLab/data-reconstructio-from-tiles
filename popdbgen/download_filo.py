@@ -42,7 +42,7 @@ def get_FILO_filename(territory: str | int = "france", dataDir: Path = DATA_DIR)
 
 
 def download_extract_FILO(dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> None:
-    logging.info("Downloading FILO resources")
+    logging.info("Downloading and extracting FILO resources...")
 
     if not dataDir.exists():
         logging.info("Creating data folder")
@@ -59,7 +59,7 @@ def download_extract_FILO(dataDir: Path = DATA_DIR, overwriteIfExists: bool = Fa
         if overwriteIfExists:
             logging.info("Overwriting already existing data files")
         else:
-            logging.info("Data files already exists, skipping download")
+            logging.info("Data files already exists, skipping download.")
             return
 
     logging.info(f"Downloading data file from {FILO_URL}")
@@ -81,7 +81,7 @@ def download_extract_FILO(dataDir: Path = DATA_DIR, overwriteIfExists: bool = Fa
     logging.info("Removing 7z file")
     seven_zip_path.unlink()
 
-    logging.info("Download and extraction done.")
+    logging.info(f"FILO data successfully downloaded and extracted in {dataDir}")
 
 
 def name_integer_column(names: list[str]) -> list[str]:
@@ -210,6 +210,7 @@ def refine_FILO(raw_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     gdf["XSO"] = gdf.tile_id.str.extract(r".*E(.*)").astype(int)
     gdf["YNE"] = gdf.YSO + 200
     gdf["XNE"] = gdf.XSO + 200
+    logging.info("FILO refinement done.")
     return gdf
 
 

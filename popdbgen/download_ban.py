@@ -38,7 +38,7 @@ def download_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteI
         if overwriteIfExists:
             logging.info("Overwriting already existing data file")
         else:
-            logging.info("Data file already exists, skipping download")
+            logging.info("Data file already exists, skipping download.")
             return file_path
 
     url = get_BAN_URL(territory)

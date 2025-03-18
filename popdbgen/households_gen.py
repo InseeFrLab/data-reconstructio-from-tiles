@@ -1,3 +1,4 @@
+import logging
 import random
 from collections.abc import Callable, Generator
 from typing import Any
@@ -241,14 +242,16 @@ def generate_households(
 ) -> Generator[dict]:
     """
     Args:
-        tile_household_generator (Callable[[pd.Series, pd.DataFrame], Generator[dict]],optional):
-            Function generating household information from a tile aggregated details and a list of addresses.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
             BAN database. Will be (down)loaded if omitted.
         territory (str, optional):
             A name of the territory to consider: 'france' (default), '974' or '972'.
+        tile_household_generator (Callable[[pd.Series, pd.DataFrame], Generator[dict]], optional):
+            Function generating household information from a tile aggregated details and a list of addresses.
+        population_generator (Callable[[dict], Generator[dict]], optional):
+            Function generating population information from household details.
 
     Returns:
         GeoDataFrame: Un GeoDataFrame contenant les points situés dans les polygones,
@@ -276,6 +279,7 @@ def get_households_gdf(
     tile_households_generator: Callable[[pd.Series, pd.DataFrame], Generator[dict]] = generate_tile_households,
     population_generator: Callable[[dict], Generator[dict]] = generate_population,
 ) -> gpd.GeoDataFrame:
+    logging.info("Generating households database...")
     households = generate_households(
         filo_df=filo_df,
         ban_df=ban_df,
@@ -293,6 +297,7 @@ def get_population_gdf(
     tile_households_generator: Callable[[pd.Series, pd.DataFrame], Generator[dict]] = generate_tile_households,
     population_generator: Callable[[dict], Generator[dict]] = generate_population,
 ) -> gpd.GeoDataFrame:
+    logging.info("Generating population database...")
     households = generate_households(
         filo_df=filo_df,
         ban_df=ban_df,
@@ -314,6 +319,7 @@ def get_households_population_gdf(
     tile_households_generator: Callable[[pd.Series, pd.DataFrame], Generator[dict]] = generate_tile_households,
     population_generator: Callable[[dict], Generator[dict]] = generate_population,
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
+    logging.info("Generating households and population databases...")
     households = list(
         generate_households(
             filo_df=filo_df,

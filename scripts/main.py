@@ -3,31 +3,24 @@ import logging
 from argparse import ArgumentParser
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from popdbgen import DATA_DIR, get_households_population_gdf, load_BAN, load_FILO
 
 
-def main(dataDir: Path = DATA_DIR, territory: str = "france", seed: int = 1703):
+def generate_households_population_databases(territory: str = "france", dataDir: Path = DATA_DIR, seed: int = 1703):
     np.random.seed(seed)
 
-    logging.info("Loading FILO...")
     filo: pd.DataFrame = load_FILO(dataDir=dataDir, territory=territory)
-
-    logging.info("Loading BAN...")
     ban: pd.DataFrame = load_BAN(dataDir=dataDir, territory=territory)
-
-    fig, ax = plt.subplots(1, 1, figsize=(20, 20))
-    filo.plot(column="ind", ax=ax, legend=True, cmap="OrRd", legend_kwds={"label": "Population par carreaux"})
-    plt.title("Carte de la population par carreaux")
-    plt.show()
 
     households, population = get_households_population_gdf(filo_df=filo, ban_df=ban)
 
-    # Export
+    logging.info(f"Exporting households to {dataDir}/households_{territory}.gpkg")
     households.to_file(dataDir / f"households_{territory}.gpkg", driver="GPKG")
+
+    logging.info(f"Exporting population to {dataDir}/population_{territory}.gpkg")
     population.to_file(dataDir / f"population_{territory}.gpkg", driver="GPKG")
 
 
@@ -38,8 +31,9 @@ if __name__ == "__main__":
         "--territory",
         dest="territory",
         type=str,
+        default="france",
         help="""
-        Territory to run on (france, 974, 972)
+        territory to run on (france, 974, 972)
         """,
     )
     argparser.add_argument(
@@ -48,7 +42,7 @@ if __name__ == "__main__":
         dest="datadir",
         type=str,
         help="""
-        Path to the data directory
+        path to the data directory
         """,
     )
     argparser.add_argument(
@@ -58,7 +52,7 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
         help="""
-        Set logging level to DEBUG
+        set logging level to DEBUG
         """,
     )
     argparser.add_argument(
@@ -69,7 +63,7 @@ if __name__ == "__main__":
         default="INFO",
         type=str.upper,
         help="""
-        Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         """,
     )
     # Parse arguments
@@ -81,4 +75,7 @@ if __name__ == "__main__":
         level="DEBUG" if args.verbose else args.loglevel,
     )
     # Run main program
-    main(dataDir=Path(args.datadir) if args.datadir else DATA_DIR, territory=args.territory or "france")
+    generate_households_population_databases(
+        territory=args.territory,
+        dataDir=Path(args.datadir) if args.datadir else DATA_DIR,
+    )
