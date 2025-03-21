@@ -32,6 +32,29 @@ end_time = time.perf_counter_ns()
 print(f"load_BAN: {(end_time - start_time)/1_000_000_000:.2f} seconds")
 
 # %%
+# 3b- Debug
+import pandas as pd
+from popdbgen import download_BAN, load_raw_FILO, filo_crs, territory_crs
+from pyproj import Transformer
+
+FILO_CRS = filo_crs(TERRITORY)
+BAN_CRS = territory_crs(TERRITORY)
+FILO_TO_BAN = Transformer.from_crs(FILO_CRS, BAN_CRS)
+BAN_TO_FILO = Transformer.from_crs(BAN_CRS, FILO_CRS)
+
+ban_file = download_BAN(TERRITORY)
+
+# %%
+filo[:10000].tile_id.str.extract('200mN(.*)E(.*)').astype(float).describe()
+# %%
+ban[:10000].tile_id.str.extract('200mN(.*)E(.*)').astype(float).describe()
+
+# %%
+raw_ban = pd.read_csv(ban_file, sep=";")
+raw_filo = load_raw_FILO(TERRITORY)
+
+
+# %%
 # 4- Generate households database
 start_time = time.perf_counter_ns()
 
@@ -44,8 +67,8 @@ print(f"Generate population and households: {(end_time - start_time)/1_000_000_0
 # 5- Export to GeoPackage
 start_time = time.perf_counter_ns()
 
-households.to_file(DATA_DIR / "households.gpkg", driver="GPKG")
-population.to_file(DATA_DIR / "population.gpkg", driver="GPKG")
+households.to_file(DATA_DIR / f"households_{TERRITORY}.gpkg", driver="GPKG")
+population.to_file(DATA_DIR / f"population_{TERRITORY}.gpkg", driver="GPKG")
 
 end_time = time.perf_counter_ns()
 print(f"Export generated databases to GeoPackage: {(end_time - start_time)/1_000_000_000:.2f} seconds")

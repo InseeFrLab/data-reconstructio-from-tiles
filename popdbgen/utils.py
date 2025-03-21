@@ -41,5 +41,17 @@ def territory_epsg(territory: str | int) -> int:
     }.get(territory_code(territory), 2154)
 
 
+# Tile EPSG
+def filo_epsg(territory: str | int) -> int:
+    return {
+        "france": 3035,
+        "974": 2975,
+    }.get(territory_code(territory), 3035)
+
+
 def territory_crs(territory: str | int) -> str:
     return f"EPSG:{territory_epsg(territory)}"
+
+
+def filo_crs(territory: str | int) -> str:
+    return f"EPSG:{filo_epsg(territory)}"

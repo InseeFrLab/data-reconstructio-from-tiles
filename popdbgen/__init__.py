@@ -16,13 +16,15 @@ from .households_gen import (
     get_households_population_gdf,
     get_population_gdf,
 )
-from .utils import DATA_DIR, PROJECT_DIR, round_alea, territory_code, territory_crs, territory_epsg
+from .utils import DATA_DIR, PROJECT_DIR, filo_crs, filo_epsg, round_alea, territory_code, territory_crs, territory_epsg
 
 __all__ = [
     # utils
     "DATA_DIR",
     "PROJECT_DIR",
     "territory_code",
+    "filo_epsg",
+    "filo_crs",
     "territory_epsg",
     "territory_crs",
     "round_alea",

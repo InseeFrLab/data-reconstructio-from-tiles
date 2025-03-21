@@ -5,8 +5,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import requests
+from pyproj import Transformer
 
-from .utils import DATA_DIR, territory_code, territory_epsg
+from .utils import DATA_DIR, filo_crs, filo_epsg, territory_code, territory_crs
 
 # Template d'URL du fichier de la base d'adresses nationale (BAN)
 BAN_TEMPLATE_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-{}.csv.gz"
@@ -62,18 +63,16 @@ def load_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteIfExi
     territory = territory_code(territory)
     ban_file = download_BAN(territory=territory, dataDir=dataDir, overwriteIfExists=overwriteIfExists)
 
-    epsg = territory_epsg(territory)
-
     ban = pd.read_csv(ban_file, sep=";", usecols=["x", "y"])
 
-    # A adapter en fonction du CRS
-    # TODO:
-    # - Check that the tile_id format forllow that same template in FILO for all territories
+    transformer = Transformer.from_crs(territory_crs(territory), filo_crs(territory), always_xy=True)
+    x, y = transformer.transform(ban.x, ban.y)
+
     ban["tile_id"] = (
-        f"CRS{epsg}RES200mN"
-        + (200 * np.floor(ban.y / 200).astype(int)).astype(str)
+        f"CRS{filo_epsg(territory)}RES200mN"
+        + (200 * np.floor(y / 200).astype(int)).astype(str)
         + "E"
-        + (200 * np.floor(ban.x / 200).astype(int)).astype(str)
+        + (200 * np.floor(x / 200).astype(int)).astype(str)
     )
 
     return ban

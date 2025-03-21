@@ -74,8 +74,12 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %I:%M:%S %p",
         level="DEBUG" if args.verbose else args.loglevel,
     )
-    # Run main program
-    generate_households_population_databases(
-        territory=args.territory,
-        dataDir=Path(args.datadir) if args.datadir else DATA_DIR,
-    )
+
+    territories = [t.strip() for t in args.territory.split(",") if t]
+    # Run main loop
+    for territory in territories:
+        logging.info(f"Running generation on territory: {territory}...")
+        generate_households_population_databases(
+            territory=territory,
+            dataDir=Path(args.datadir) if args.datadir else DATA_DIR,
+        )
