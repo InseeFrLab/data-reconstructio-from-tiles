@@ -9,19 +9,38 @@ import pandas as pd
 from popdbgen import DATA_DIR, get_households_population_gdf, load_BAN, load_FILO
 
 
-def generate_households_population_databases(territory: str = "france", dataDir: Path = DATA_DIR, seed: int = 1703):
+def generate_households_population_databases(
+    territory: str = "france",
+    dataDir: Path = DATA_DIR,
+    seed: int = 1703
+):
     np.random.seed(seed)
 
     filo: pd.DataFrame = load_FILO(dataDir=dataDir, territory=territory)
     ban: pd.DataFrame = load_BAN(dataDir=dataDir, territory=territory)
 
+    households_output_file = dataDir / f"households_{territory}.gpkg"
+    population_output_file = dataDir / f"population_{territory}.gpkg"
+    logging.info(f"Exporting households to {population_output_file}")
+    logging.info(f"Exporting population to {population_output_file}")
+
+    hh_it = iter(generate_households(filo_df=filo, ban_df=ban))
+    for hh in :
+        .to_file(households_output_file, layer="households", driver="GPKG")
+        gpd.GeoDataFrame(data=households, geometry="geometry", crs=territory_crs(territory))
+
+        gpd.GeoDataFrame(
+            data=[ind for hh in households for ind in population_generator(hh)],
+            geometry="geometry",
+            crs=territory_crs(territory),
+        ),
+        for ind in population_generator(hh):
+
+
     households, population = get_households_population_gdf(filo_df=filo, ban_df=ban)
 
-    logging.info(f"Exporting households to {dataDir}/households_{territory}.gpkg")
-    households.to_file(dataDir / f"households_{territory}.gpkg", driver="GPKG")
-
-    logging.info(f"Exporting population to {dataDir}/population_{territory}.gpkg")
-    population.to_file(dataDir / f"population_{territory}.gpkg", driver="GPKG")
+    households.to_file(households_output_file, layer="households", driver="GPKG")
+    population.to_file(population_output_file, layer="population", driver="GPKG")
 
 
 if __name__ == "__main__":
