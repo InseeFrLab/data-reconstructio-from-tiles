@@ -7,21 +7,21 @@ import pandas as pd
 import requests
 from pyproj import Transformer
 
-from .utils import DATA_DIR, filo_crs, filo_epsg, territory_code, territory_crs
+from .utils import DATA_DIR, TerritoryCode, filo_crs, filo_epsg, territory_code, territory_crs
 
 # Template d'URL du fichier de la base d'adresses nationale (BAN)
 BAN_TEMPLATE_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-{}.csv.gz"
 BAN_FILENAME_TEMPLATE = "adresses-{}.csv.gz"
 
 
-def get_BAN_URL(territory: str = "france") -> str:
+def get_BAN_URL(territory: str | int = "france") -> str:
     """
     Returns the URL linking to the open data BAN file.
     """
     return BAN_TEMPLATE_URL.format(territory_code(territory))
 
 
-def download_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> Path:
+def download_BAN(territory: str | int = "france", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> Path:
     """
     Downloads the open data BAN file for argument territory.
     Returns the pathlib.Path to the saved file.
@@ -58,18 +58,20 @@ def download_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteI
     return file_path
 
 
-def load_BAN(territory: str = "france", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> pd.DataFrame:
+def load_BAN(
+    territory: str | int = "france", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False
+) -> pd.DataFrame:
     # Download
-    territory = territory_code(territory)
-    ban_file = download_BAN(territory=territory, dataDir=dataDir, overwriteIfExists=overwriteIfExists)
+    terr_code: TerritoryCode = territory_code(territory)
+    ban_file = download_BAN(territory=terr_code, dataDir=dataDir, overwriteIfExists=overwriteIfExists)
 
     ban = pd.read_csv(ban_file, sep=";", usecols=["x", "y"])
 
-    transformer = Transformer.from_crs(territory_crs(territory), filo_crs(territory), always_xy=True)
+    transformer = Transformer.from_crs(territory_crs(terr_code), filo_crs(terr_code), always_xy=True)
     x, y = transformer.transform(ban.x, ban.y)
 
     ban["tile_id"] = (
-        f"CRS{filo_epsg(territory)}RES200mN"
+        f"CRS{filo_epsg[terr_code]}RES200mN"
         + (200 * np.floor(y / 200).astype(int)).astype(str)
         + "E"
         + (200 * np.floor(x / 200).astype(int)).astype(str)

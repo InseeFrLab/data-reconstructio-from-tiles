@@ -2,6 +2,7 @@
 import logging
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
@@ -10,13 +11,20 @@ import py7zr
 import requests
 from pyproj import Transformer
 
-from .utils import DATA_DIR, filo_crs, territory_code, territory_crs
+from .utils import (
+    ADULT_AGE_COLUMNS,
+    ALL_AGE_COLUMNS,
+    ALL_AGE_LITERAL,
+    DATA_DIR,
+    MINOR_AGE_COLUMNS,
+    TerritoryCode,
+    filo_crs,
+    territory_code,
+    territory_crs,
+)
 
 # URL par défaut du fichier à télécharger
 FILO_URL: str = "https://www.insee.fr/fr/statistiques/fichier/7655475/Filosofi2019_carreaux_200m_gpkg.zip"
-MINOR_AGE_COLUMNS: list[str] = ["ind_0_3", "ind_4_5", "ind_6_10", "ind_11_17"]
-ADULT_AGE_COLUMNS: list[str] = ["ind_18_24", "ind_25_39", "ind_40_54", "ind_55_64", "ind_65_79", "ind_80p", "ind_inc"]
-ALL_AGE_COLUMNS: list[str] = MINOR_AGE_COLUMNS + ADULT_AGE_COLUMNS
 HOUSEHOLD_IND_COLUMNS: list[str] = [
     "men_1ind",  # Nombre de ménages d'un seul individu
     "men_5ind",  # Nombre de ménages de 5 individus ou plus
@@ -30,16 +38,15 @@ HOUSEHOLD_BAT_COLUMNS: list[str] = [
 NUMERIC_COLUMNS: list[str] = ["ind_snv", "men_pauv"]
 
 
+_FILO_territory_filename = {
+    "france": "carreaux_200m_met.gpkg",
+    "974": "carreaux_200m_reun.gpkg",
+    "972": "carreaux_200m_mart.gpkg",
+}
+
+
 def get_FILO_filename(territory: str | int = "france", dataDir: Path = DATA_DIR) -> Path:
-    territory = territory_code(territory)
-    if territory == "france":
-        return dataDir / "carreaux_200m_met.gpkg"
-    elif territory == "972":
-        return dataDir / "carreaux_200m_mart.gpkg"
-    elif territory == "974":
-        return dataDir / "carreaux_200m_reun.gpkg"
-    else:
-        raise FileNotFoundError(f"No FILO file for territory [{territory}]!")
+    return dataDir / _FILO_territory_filename[territory_code(territory)]
 
 
 def download_extract_FILO(dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> None:
@@ -99,13 +106,13 @@ def single_round_alea(x: float) -> int:
     return i + (np.random.random() < d)
 
 
-def refine_FILO_tile(s: pd.Series) -> dict:
-    o = {}
+def refine_FILO_tile(s: pd.Series) -> dict[str, Any]:
+    o: dict[str, Any] = {}
     o["ind"] = max(1, single_round_alea(s.ind))
     o["men"] = min(o["ind"], max(1, single_round_alea(s.men)))
 
-    bumps = {}
-    for c in ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS:
+    bumps: dict[ALL_AGE_LITERAL, float] = {}
+    for c in ALL_AGE_COLUMNS:
         i, d = divmod1(s[c])
         # Keep the rounded down value for now
         o[c] = i
@@ -116,16 +123,16 @@ def refine_FILO_tile(s: pd.Series) -> dict:
     missing_adults = o["men"] - age_adult
     if missing_adults > 0:
         # We need more adults to have one per household
-        cols = sorted(ADULT_AGE_COLUMNS, key=lambda c: bumps[c], reverse=True)
+        cols: list[ALL_AGE_LITERAL] = sorted(ADULT_AGE_COLUMNS, key=lambda c: bumps[c], reverse=True)
         for c in cols[:missing_adults]:
             o[c] += 1
             bumps[c] = 0
 
-    age_indiv = sum(int(o[k]) for k in ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS)
+    age_indiv = sum(int(o[k]) for k in ALL_AGE_COLUMNS)
     missing_indiv = o["ind"] - age_indiv
     if missing_indiv > 0:
         # We need more people in the age columns to match the total "ind"
-        cols = sorted(ADULT_AGE_COLUMNS + MINOR_AGE_COLUMNS, key=lambda c: bumps[c], reverse=True)
+        cols = sorted(ALL_AGE_COLUMNS, key=lambda c: bumps[c], reverse=True)
         for c in cols[:missing_indiv]:
             o[c] += 1
     elif missing_indiv < 0:
@@ -185,13 +192,14 @@ def refine_FILO_tile(s: pd.Series) -> dict:
         # - we are "lucky enough" (proportionally to the remainder rem_men_5ind)
         o["men_5ind"] += 1
 
-    for c in HOUSEHOLD_BAT_COLUMNS:
-        o[c] = min(o["men"], single_round_alea(s[c]))
+    for bat_col in HOUSEHOLD_BAT_COLUMNS:
+        o[bat_col] = min(o["men"], single_round_alea(s[bat_col]))
 
     return o
 
 
 def refine_FILO(raw_gdf: gpd.GeoDataFrame, territory: str | int = "france") -> gpd.GeoDataFrame:
+    terr_code: TerritoryCode = territory_code(territory)
     logging.info("Refining FILO...")
     gdf = gpd.GeoDataFrame(geometry=raw_gdf.geometry, index=raw_gdf.index)
     gdf = gdf.join(raw_gdf.apply(refine_FILO_tile, axis=1, result_type="expand").astype(int))
@@ -214,7 +222,7 @@ def refine_FILO(raw_gdf: gpd.GeoDataFrame, territory: str | int = "france") -> g
     YNE = YSO + 200
     XNE = XSO + 200
 
-    transformer = Transformer.from_crs(filo_crs(territory), territory_crs(territory), always_xy=True)
+    transformer = Transformer.from_crs(filo_crs(terr_code), territory_crs(terr_code), always_xy=True)
     XSO, YSO = transformer.transform(XSO, YSO)
     XNE, YNE = transformer.transform(XNE, YNE)
 
@@ -234,14 +242,14 @@ def coherence_check(tiled_filo: pd.DataFrame):
     return None
 
 
-def load_raw_FILO(territory: str = "france", dataDir: Path = DATA_DIR):
+def load_raw_FILO(territory: str | int = "france", dataDir: Path = DATA_DIR):
     download_extract_FILO()
     file_path = get_FILO_filename(territory, dataDir=dataDir)
     logging.info("Loading FILO data...")
     return gpd.read_file(file_path)
 
 
-def load_FILO(territory: str = "france", check_coherence: bool = False, dataDir: Path = DATA_DIR):
+def load_FILO(territory: str | int = "france", check_coherence: bool = False, dataDir: Path = DATA_DIR):
     raw_filo = load_raw_FILO(territory=territory, dataDir=dataDir)
     refined_filo = refine_FILO(raw_filo, territory=territory)
     if check_coherence:
