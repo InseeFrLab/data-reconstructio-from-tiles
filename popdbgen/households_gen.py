@@ -182,7 +182,7 @@ def get_households_with_ages(tile: pd.Series) -> list[AlmostHouseholdsFeature]:
         hh["NB_MINORS"] = hh["SIZE"] - hh["NB_ADULTS"]
         for _ in range(hh["NB_MINORS"]):
             hh[minor_ages.pop()] += 1
-        hh["MONOPARENT"] = hh["NB_ADULTS"] == 1 and hh["NB_ADULTS"] > 1
+        hh["MONOPARENT"] = hh["NB_ADULTS"] == 1 and hh["NB_MINORS"] > 0
     return households
 
 
