@@ -50,7 +50,10 @@ The generated households database can be converted to a tiled format for data ex
 
 ```sh
 ogr2ogr -f GeoJSONSeq /vsistdout/ households_france.gpkg | tippecanoe -z15 --drop-densest-as-needed -P -o households_france.mbtiles -l households
-ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_met.gpkg | tippecanoe -z15 --drop-densest-as-needed -P -o carreaux_200m_met.mbtiles -l filo
+ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_met.gpkg | tippecanoe -z15 --coalesce-densest-as-needed -P -o carreaux_200m_met.mbtiles -l filo
+
+# FIXME: this fails for some reason...
+ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_met.gpkg | tippecanoe -Z4 -z4 --coalesce-densest-as-needed -P -o carreaux_200m_met_z4.mbtiles -l filo
 ```
 </details>
 
@@ -59,7 +62,7 @@ ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_met.gpkg | tippecanoe -z15 --dro
 
 ```sh
 ogr2ogr -f GeoJSONSeq /vsistdout/ households_974.gpkg | tippecanoe -z15 --drop-densest-as-needed -P -o households_974.mbtiles -l households
-ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_reun.gpkg | tippecanoe -z15 --drop-densest-as-needed -P -o carreaux_200m_reun.mbtiles -l filo
+ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_reun.gpkg | tippecanoe -z15 --coalesce-densest-as-needed -ab -P -o carreaux_200m_reun.mbtiles -l filo
 ```
 </details>
 
@@ -91,11 +94,21 @@ pmtiles convert filo_households_974.mbtiles filo_households_974.pmtiles
 ```
 </details>
 
+### `tippecanoe` installation
+
+```sh
+git clone https://github.com/felt/tippecanoe.git
+cd tippecanoe
+make -j
+sudo make install
+```
+
 ### `pmtiles` installation
 
 ```sh
 wget https://github.com/protomaps/go-pmtiles/releases/download/v1.26.1/go-pmtiles_1.26.1_Linux_x86_64.tar.gz
 tar -zxvf go-pmtiles_1.26.1_Linux_x86_64.tar.gz
+sudo cp pmtiles /usr/local/bin/
 ```
 
 ### An online PMTiles viewer
