@@ -266,21 +266,21 @@ def generate_population(hh: HouseholdsFeature) -> Generator[PopulationFeature]:
 
 
 def generate_households(
+    territory: TerritoryCode = "france",
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
-    territory: TerritoryCode = "france",
     tile_households_generator: Callable[
         [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
 ) -> Generator[HouseholdsFeature]:
     """
     Args:
+        territory (TerritoryCode):
+            A name of the territory to consider: 'france' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
             BAN database. Will be (down)loaded if omitted.
-        territory (str, optional):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
         tile_household_generator (Callable[[pd.Series, pd.DataFrame], Generator[dict]], optional):
             Function generating household information from a tile aggregated details and a list of addresses.
 
@@ -303,21 +303,21 @@ def generate_households(
 
 
 def get_households_gdf(
+    territory: TerritoryCode = "france",
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
-    territory: TerritoryCode = "france",
     tile_households_generator: Callable[
         [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
 ) -> gpd.GeoDataFrame:
     """
     Args:
+        territory (TerritoryCode):
+            A name of the territory to consider: 'france' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
             BAN database. Will be (down)loaded if omitted.
-        territory (TerritoryCode, optional):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
         tile_household_generator (Callable[[pd.Series, pd.DataFrame], Iterator[dict]], optional):
             Function generating household information from a tile aggregated details and a list of addresses.
 
@@ -332,9 +332,9 @@ def get_households_gdf(
 
 
 def get_population_gdf(
+    territory: TerritoryCode = "france",
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
-    territory: TerritoryCode = "france",
     tile_households_generator: Callable[
         [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
@@ -342,12 +342,12 @@ def get_population_gdf(
 ) -> gpd.GeoDataFrame:
     """
     Args:
+        territory (TerritoryCode):
+            A name of the territory to consider: 'france' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
             BAN database. Will be (down)loaded if omitted.
-        territory (TerritoryCode, optional):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
         tile_household_generator (Callable[[pd.Series, pd.DataFrame], Iterator[dict]], optional):
             Function generating household information from a tile aggregated details and a list of addresses.
         population_generator (Callable[[dict], Iterator[dict]], optional):
@@ -364,9 +364,9 @@ def get_population_gdf(
 
 
 def get_households_population_gdf(
+    territory: TerritoryCode = "france",
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
-    territory: TerritoryCode = "france",
     tile_households_generator: Callable[
         [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
@@ -374,12 +374,12 @@ def get_households_population_gdf(
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """
     Args:
+        territory (TerritoryCode):
+            A name of the territory to consider: 'france' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
             BAN database. Will be (down)loaded if omitted.
-        territory (TerritoryCode, optional):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
         tile_household_generator (Callable[[pd.Series, pd.DataFrame], Iterator[dict]], optional):
             Function generating household information from a tile aggregated details and a list of addresses.
         population_generator (Callable[[dict], Iterator[dict]], optional):
@@ -402,10 +402,10 @@ def get_households_population_gdf(
 
 
 def generate_batched_households(
+    territory: TerritoryCode = "france",
     batch_size: int = 1000,
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
-    territory: TerritoryCode = "france",
     tile_households_generator: Callable[
         [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
@@ -419,22 +419,22 @@ def generate_batched_households(
 
 
 def get_batched_households_gdf(
+    territory: TerritoryCode = "france",
     batch_size: int = 1000,
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
-    territory: TerritoryCode = "france",
     tile_households_generator: Callable[
         [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
 ) -> Generator[gpd.GeoDataFrame]:
     """
     Args:
+        territory (TerritoryCode):
+            A name of the territory to consider: 'france' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
             BAN database. Will be (down)loaded if omitted.
-        territory (TerritoryCode, optional):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
         tile_household_generator (Callable[[pd.Series, pd.DataFrame], Iterator[dict]], optional):
             Function generating household information from a tile aggregated details and a list of addresses.
 
@@ -453,10 +453,10 @@ def get_batched_households_gdf(
 
 
 def get_batched_population_gdf(
+    territory: TerritoryCode = "france",
     batch_size: int = 1000,
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
-    territory: TerritoryCode = "france",
     tile_households_generator: Callable[
         [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
@@ -464,12 +464,12 @@ def get_batched_population_gdf(
 ) -> Generator[gpd.GeoDataFrame]:
     """
     Args:
+        territory (TerritoryCode):
+            A name of the territory to consider: 'france' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
             BAN database. Will be (down)loaded if omitted.
-        territory (TerritoryCode, optional):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
         tile_household_generator (Callable[[pd.Series, pd.DataFrame], Iterator[dict]], optional):
             Function generating household information from a tile aggregated details and a list of addresses.
         population_generator (Callable[[dict], Iterator[dict]], optional):
@@ -490,10 +490,10 @@ def get_batched_population_gdf(
 
 
 def get_batched_households_population_gdf(
+    territory: TerritoryCode = "france",
     batch_size: int = 1000,
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
-    territory: TerritoryCode = "france",
     tile_households_generator: Callable[
         [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
@@ -501,12 +501,12 @@ def get_batched_households_population_gdf(
 ) -> Generator[tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
     """
     Args:
+        territory (TerritoryCode):
+            A name of the territory to consider: 'france' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
             BAN database. Will be (down)loaded if omitted.
-        territory (TerritoryCode, optional):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
         tile_household_generator (Callable[[pd.Series, pd.DataFrame], Iterator[dict]], optional):
             Function generating household information from a tile aggregated details and a list of addresses.
         population_generator (Callable[[dict], Iterator[dict]], optional):

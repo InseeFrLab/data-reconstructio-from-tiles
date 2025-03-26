@@ -48,7 +48,7 @@ def generate_households_population_databases(
 
     nb_batches = 1 + (nb_households - 1) // batchSize
 
-    batches = get_batched_households_population_gdf(batch_size=batchSize, filo_df=filo, ban_df=ban)
+    batches = get_batched_households_population_gdf(batch_size=batchSize, territory=territory, filo_df=filo, ban_df=ban)
 
     hh_first_batch, pop_first_batch = next(batches)
     if saveAsGeoPackage:
