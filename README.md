@@ -1,7 +1,7 @@
 # donnees-synth-geo
 
 ## Get started on SSPCloud
-- [Using VSCode and Python](https://datalab.sspcloud.fr/launcher/ide/vscode-python?name=vscode-python&version=2.2.4&s3=region-ec97c721&init.personalInit=«https%3A%2F%2Fraw.githubusercontent.com%2FInseeFrLab%2Fdata-reconstructio-from-tiles%2Frefs%2Fheads%2Fmain%2Finit-scripts%2Fvscode-python.sh»)
+- [Using VSCode and Python](https://datalab.sspcloud.fr/launcher/ide/vscode-python?name=synth-data&init.personalInit=«https%3A%2F%2Fraw.githubusercontent.com%2FInseeFrLab%2Fdata-reconstructio-from-tiles%2Frefs%2Fheads%2Fmain%2Finit-scripts%2Fvscode-python.sh»)
 
 ## Install the project
 ```sh
@@ -50,10 +50,14 @@ The generated households database can be converted to a tiled format for data ex
 
 ```sh
 ogr2ogr -f GeoJSONSeq /vsistdout/ households_france.gpkg | tippecanoe -z15 --drop-densest-as-needed -P -o households_france.mbtiles -l households
-ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_met.gpkg | tippecanoe -z15 --coalesce-densest-as-needed -P -o carreaux_200m_met.mbtiles -l filo
-
-# FIXME: this fails for some reason...
-ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_met.gpkg | tippecanoe -Z4 -z4 --coalesce-densest-as-needed -P -o carreaux_200m_met_z4.mbtiles -l filo
+# The FILO tiles are too numerous to be represented at higher zoom levels for Metropolitan France
+# Zoom levels 11-15: generate tiles without simplification
+ogr2ogr -f GeoJSONSeq /vsistdout/ households_france.gpkg | tippecanoe -l filo -Z11 -z15 -P -o carreaux_200m_met_z11-15.mbtiles
+# Zoom levels 8-10: drop attributes and coalesce geometries
+ogr2ogr -f GeoJSONSeq /vsistdout/ households_france.gpkg | tippecanoe -l filo -Z8  -z10 -P -X --coalesce -o carreaux_200m_met_z8-10.mbtiles
+# Zoom levels 0-7: no tile generated
+tile-join -o carreaux_200m_met.mbtiles carreaux_200m_met_z11-15.mbtiles carreaux_200m_met_z8-10.mbtiles
+rm carreaux_200m_met_z11-15.mbtiles carreaux_200m_met_z8-10.mbtiles
 ```
 </details>
 

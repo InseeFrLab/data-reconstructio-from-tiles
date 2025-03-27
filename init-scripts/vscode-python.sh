@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # You may use this initialization script to easily setup an Onyxia "vscode-python" service
-# https://datalab.sspcloud.fr/launcher/ide/vscode-python?name=vscode-python&init.personalInit=%C2%ABhttps%3A%2F%2Fraw.githubusercontent.com%2FJulienJamme%2Fdonnees-synth-geo%2Frefs%2Fheads%2Fmain%2Finit-scripts%2Fvscode-python.sh%C2%BB
+# https://datalab.sspcloud.fr/launcher/ide/vscode-python?name=synth-data&init.personalInit=%C2%ABhttps%3A%2F%2Fraw.githubusercontent.com%2FInseeFrLab%2Fdata-reconstructio-from-tiles%2Frefs%2Fheads%2Fmain%2Finit-scripts%2Fvscode-python.sh%C2%BB
 
 sudo apt update -y
 sudo apt install tree -y
