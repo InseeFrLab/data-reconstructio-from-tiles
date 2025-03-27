@@ -52,9 +52,9 @@ The generated households database can be converted to a tiled format for data ex
 ogr2ogr -f GeoJSONSeq /vsistdout/ households_france.gpkg | tippecanoe -z15 --drop-densest-as-needed -P -o households_france.mbtiles -l households
 # The FILO tiles are too numerous to be represented at higher zoom levels for Metropolitan France
 # Zoom levels 11-15: generate tiles without simplification
-ogr2ogr -f GeoJSONSeq /vsistdout/ households_france.gpkg | tippecanoe -l filo -Z11 -z15 -P -o carreaux_200m_met_z11-15.mbtiles
+ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_met.gpkg | tippecanoe -l filo -Z11 -z15 -P -o carreaux_200m_met_z11-15.mbtiles
 # Zoom levels 8-10: drop attributes and coalesce geometries
-ogr2ogr -f GeoJSONSeq /vsistdout/ households_france.gpkg | tippecanoe -l filo -Z8  -z10 -P -X --coalesce -o carreaux_200m_met_z8-10.mbtiles
+ogr2ogr -f GeoJSONSeq /vsistdout/ carreaux_200m_met.gpkg | tippecanoe -l filo -Z8  -z10 -P -X --coalesce -o carreaux_200m_met_z8-10.mbtiles
 # Zoom levels 0-7: no tile generated
 tile-join -o carreaux_200m_met.mbtiles carreaux_200m_met_z11-15.mbtiles carreaux_200m_met_z8-10.mbtiles
 rm carreaux_200m_met_z11-15.mbtiles carreaux_200m_met_z8-10.mbtiles
