@@ -20,14 +20,22 @@ from .households_gen import (
     get_households_population_gdf,
     get_population_gdf,
 )
+from .metadata import (
+    HouseholdsFeature,
+    PopulationFeature,
+    households_dtype,
+    households_gpkg_schema,
+    population_dtype,
+    population_gpkg_schema,
+    save_households_metadata,
+    save_population_metadata,
+)
 from .utils import (
     DATA_DIR,
     PROJECT_DIR,
     TerritoryCode,
     filo_crs,
     filo_epsg,
-    households_gpkg_schema,
-    population_gpkg_schema,
     round_alea,
     territory_code,
     territory_crs,
@@ -35,6 +43,15 @@ from .utils import (
 )
 
 __all__ = [
+    # metadata
+    "HouseholdsFeature",
+    "PopulationFeature",
+    "households_dtype",
+    "population_dtype",
+    "households_gpkg_schema",
+    "population_gpkg_schema",
+    "save_population_metadata",
+    "save_households_metadata",
     # utils
     "DATA_DIR",
     "PROJECT_DIR",

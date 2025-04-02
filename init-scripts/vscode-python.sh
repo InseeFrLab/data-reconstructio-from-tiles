@@ -9,7 +9,7 @@ sudo apt install tree -y
 # Clone project
 cd ~/work/
 git clone https://github.com/InseeFrLab/data-reconstructio-from-tiles.git
-cd data-reconstructio-from-tiles
+cd ~/work/data-reconstructio-from-tiles/
 
 # Install project (requirements and main package)
 pip install -e .
@@ -34,6 +34,8 @@ python scripts/download_BAN.py
 
 # Test generation of La Reunion database
 python scripts/main.py -t 974
+
+cd ~/work/data-reconstructio-from-tiles/data/
 
 # Install Tippecanoe
 git clone https://github.com/felt/tippecanoe.git

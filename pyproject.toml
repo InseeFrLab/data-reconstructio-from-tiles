@@ -12,7 +12,8 @@ dependencies = [
     "py7zr",
     "types-requests",
     "pandas-stubs",
-    "types-geopandas"
+    "types-geopandas",
+    "PyYAML"
 ]
 
 [tool.setuptools]

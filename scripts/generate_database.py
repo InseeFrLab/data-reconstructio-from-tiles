@@ -11,6 +11,8 @@ from popdbgen import (
     get_batched_households_population_gdf,
     load_BAN,
     load_FILO,
+    save_households_metadata,
+    save_population_metadata,
 )
 
 
@@ -36,6 +38,9 @@ def generate_households_population_databases(
     hho_parquet_output_file = dataDir / f"households_{territory}.parquet"
     pop_parquet_output_file = dataDir / f"population_{territory}.parquet"
 
+    hho_metadata_output_file = dataDir / f"households_{territory}.yaml"
+    pop_metadata_output_file = dataDir / f"population_{territory}.yaml"
+
     if saveAsGeoPackage:
         logging.info(f"Exporting households to {hho_gpkg_output_file}")
         logging.info(f"Exporting population to {pop_gpkg_output_file}")
@@ -44,7 +49,9 @@ def generate_households_population_databases(
         logging.info(f"Exporting population to {pop_parquet_output_file}")
 
     nb_households = int(filo.men.sum())
+    nb_individuals = int(filo.ind.sum())
     logging.info(f"Number of households to process: {nb_households}")
+    logging.info(f"Number of individuals to generate: {nb_individuals}")
 
     nb_batches = 1 + (nb_households - 1) // batchSize
 
@@ -61,7 +68,7 @@ def generate_households_population_databases(
     del pop_first_batch
 
     for batch_index, (households, population) in enumerate(batches):
-        logging.info(f"Processed batch: {batch_index} out of {nb_batches} ({float(batch_index)/nb_batches:.2%})")
+        logging.info(f"Processed batch: {batch_index+1} out of {nb_batches} ({float(batch_index+1)/nb_batches:.2%})")
         if saveAsGeoPackage:
             households.to_file(hho_gpkg_output_file, layer="households", driver="GPKG", mode="a")
             population.to_file(pop_gpkg_output_file, layer="population", driver="GPKG", mode="a")
@@ -71,6 +78,11 @@ def generate_households_population_databases(
         del households
         del population
     logging.info("All batches processed")
+
+    logging.info("Saving metadata")
+    save_households_metadata(hho_metadata_output_file, nb_households)
+    save_population_metadata(pop_metadata_output_file, nb_individuals)
+
     if saveAsGeoPackage:
         logging.info(f"Households database generated: {hho_gpkg_output_file}")
         logging.info(f"Population database generated: {pop_gpkg_output_file}")

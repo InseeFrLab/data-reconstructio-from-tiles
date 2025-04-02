@@ -11,14 +11,13 @@ from shapely.geometry import Point
 
 from .download_ban import load_BAN
 from .download_filo import load_FILO
+from .metadata import HouseholdsFeature, PopulationFeature
 from .utils import (
     ADULT_AGE_COLUMNS,
     ADULT_AGE_LITERAL,
     ALL_AGE_COLUMNS,
     MINOR_AGE_COLUMNS,
     MINOR_AGE_LITERAL,
-    HouseholdsFeature,
-    PopulationFeature,
     TerritoryCode,
     age_categories,
     mkHouseholdsDataFrame,

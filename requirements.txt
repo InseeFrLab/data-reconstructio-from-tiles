@@ -2,3 +2,4 @@ py7zr
 types-requests
 pandas-stubs
 types-geopandas
+PyYAML
