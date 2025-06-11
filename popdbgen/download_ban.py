@@ -13,15 +13,28 @@ from .utils import DATA_DIR, TerritoryCode, filo_crs, filo_epsg, territory_code,
 BAN_TEMPLATE_URL = "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-{}.csv.gz"
 BAN_FILENAME_TEMPLATE = "adresses-{}.csv.gz"
 
+_BAN_territory_code = {
+    "METRO": "france",
+    "974": "974",
+    "972": "972",
+}
 
-def get_BAN_URL(territory: str | int = "france") -> str:
+
+def get_BAN_URL(territory: str | int = "METRO") -> str:
     """
     Returns the URL linking to the open data BAN file.
     """
-    return BAN_TEMPLATE_URL.format(territory_code(territory))
+    return BAN_TEMPLATE_URL.format(_BAN_territory_code[territory_code(territory)])
 
 
-def download_BAN(territory: str | int = "france", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> Path:
+def get_BAN_filename(territory: str | int = "METRO", dataDir: Path = DATA_DIR) -> Path:
+    """
+    TODO: Document me
+    """
+    return dataDir / BAN_FILENAME_TEMPLATE.format(_BAN_territory_code[territory_code(territory)])
+
+
+def download_BAN(territory: str | int = "METRO", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> Path:
     """
     Downloads the open data BAN file for argument territory.
     Returns the pathlib.Path to the saved file.
@@ -33,7 +46,7 @@ def download_BAN(territory: str | int = "france", dataDir: Path = DATA_DIR, over
         dataDir.mkdir(exist_ok=True)
 
     # Chemin complet du fichier à télécharger
-    file_path = dataDir / f"adresses-{territory_code(territory)}.csv.gz"
+    file_path = get_BAN_filename(territory, dataDir)
 
     if file_path.is_file():
         if overwriteIfExists:
@@ -58,9 +71,7 @@ def download_BAN(territory: str | int = "france", dataDir: Path = DATA_DIR, over
     return file_path
 
 
-def load_BAN(
-    territory: str | int = "france", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False
-) -> pd.DataFrame:
+def load_BAN(territory: str | int = "METRO", dataDir: Path = DATA_DIR, overwriteIfExists: bool = False) -> pd.DataFrame:
     # Download
     terr_code: TerritoryCode = territory_code(territory)
     ban_file = download_BAN(territory=terr_code, dataDir=dataDir, overwriteIfExists=overwriteIfExists)

@@ -12,9 +12,9 @@ if __name__ == "__main__":
         "--territory",
         dest="territory",
         type=str,
-        default="france",
+        default="METRO",
         help="""
-        territory to run on (france, 974, 972)
+        territory to run on (METRO, 974, 972)
         """,
     )
     argparser.add_argument(

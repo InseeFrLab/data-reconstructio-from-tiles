@@ -26,13 +26,13 @@ def round_alea(x: pd.Series) -> pd.Series:
     return (i + (np.random.rand(len(x)) < d)).astype(int)
 
 
-TerritoryCode = Literal["france", "972", "974"]
+TerritoryCode = Literal["METRO", "972", "974"]
 
 
 def territory_code(territory: str | int) -> TerritoryCode:
     territory = str(territory).lower()
     if territory in ("france", "met", "metro"):
-        return "france"
+        return "METRO"
     elif territory in ("972", "martinique", "mart"):
         return "972"
     elif territory in ("974", "reunion", "reun", "reu"):
@@ -42,13 +42,13 @@ def territory_code(territory: str | int) -> TerritoryCode:
 
 
 territory_epsg: dict[TerritoryCode, int] = {
-    "france": 2154,
+    "METRO": 2154,
     "974": 2975,
     "972": 2154,  # FIXME: implement proper EPSG
 }
 
 filo_epsg: dict[TerritoryCode, int] = {
-    "france": 3035,
+    "METRO": 3035,
     "974": 2975,
     "972": 3035,  # FIXME: implement proper EPSG
 }
@@ -107,13 +107,13 @@ age_categories: dict[ALL_AGE_LITERAL, tuple[bool, int, int]] = {
 }
 
 
-def mkHouseholdsDataFrame(data, territory: TerritoryCode):
+def mkHouseholdsDataFrame(data, territory: TerritoryCode) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(data=data, geometry="geometry", crs=territory_crs(territory)).astype(
         dtype=households_dtype, copy=False
     )
 
 
-def mkPopulationDataFrame(data, territory: TerritoryCode):
+def mkPopulationDataFrame(data, territory: TerritoryCode) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(data=data, geometry="geometry", crs=territory_crs(territory)).astype(
         dtype=population_dtype, copy=False
     )

@@ -17,7 +17,7 @@ from popdbgen import (
 
 
 def generate_households_population_databases(
-    territory: str = "france",
+    territory: str = "METRO",
     dataDir: Path = DATA_DIR,
     seed: int = 1703,
     batchSize: int = 100_000,
@@ -62,8 +62,8 @@ def generate_households_population_databases(
         hh_first_batch.to_file(hho_gpkg_output_file, layer="households", driver="GPKG", mode="w")
         pop_first_batch.to_file(pop_gpkg_output_file, layer="population", driver="GPKG", mode="w")
     if saveAsGeoParquet:
-        hh_first_batch.to_parquet(hho_parquet_output_file, engine="fastparquet")
-        pop_first_batch.to_parquet(pop_parquet_output_file, engine="fastparquet")
+        hh_first_batch.to_wkb().to_parquet(hho_parquet_output_file, engine="fastparquet")
+        pop_first_batch.to_wkb().to_parquet(pop_parquet_output_file, engine="fastparquet")
     del hh_first_batch
     del pop_first_batch
 
@@ -73,8 +73,8 @@ def generate_households_population_databases(
             households.to_file(hho_gpkg_output_file, layer="households", driver="GPKG", mode="a")
             population.to_file(pop_gpkg_output_file, layer="population", driver="GPKG", mode="a")
         if saveAsGeoParquet:
-            households.to_parquet(hho_parquet_output_file, engine="fastparquet", append=True)
-            population.to_parquet(pop_parquet_output_file, engine="fastparquet", append=True)
+            households.to_wkb().to_parquet(hho_parquet_output_file, engine="fastparquet", append=True)
+            population.to_wkb().to_parquet(pop_parquet_output_file, engine="fastparquet", append=True)
         del households
         del population
     logging.info("All batches processed")
@@ -98,9 +98,9 @@ if __name__ == "__main__":
         "--territory",
         dest="territory",
         type=str,
-        default="france",
+        default="METRO",
         help="""
-        comma-separated list of territories to run on (france, 974, 972)
+        comma-separated list of territories to run on (METRO, 974, 972)
         """,
     )
     argparser.add_argument(

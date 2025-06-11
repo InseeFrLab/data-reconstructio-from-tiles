@@ -13,7 +13,8 @@ dependencies = [
     "types-requests",
     "pandas-stubs",
     "types-geopandas",
-    "PyYAML"
+    "pyyaml",
+    "pandas>=2.2.3",
 ]
 
 [tool.setuptools]

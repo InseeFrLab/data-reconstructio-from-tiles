@@ -7,6 +7,7 @@ from typing import TypedDict, cast
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from pyproj import Transformer
 from shapely.geometry import Point
 
 from .download_ban import load_BAN
@@ -20,8 +21,10 @@ from .utils import (
     MINOR_AGE_LITERAL,
     TerritoryCode,
     age_categories,
+    filo_crs,
     mkHouseholdsDataFrame,
     mkPopulationDataFrame,
+    territory_crs,
 )
 
 
@@ -185,7 +188,7 @@ def get_households_with_ages(tile: pd.Series) -> list[AlmostHouseholdsFeature]:
     return households
 
 
-def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> list[Point]:
+def draw_addresses(tile: pd.Series, addresses: pd.DataFrame, territory: TerritoryCode) -> list[Point]:
     """Tire un ensemble d'adresses pour chacun des ménages du carreau.
 
     Args:
@@ -200,8 +203,14 @@ def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> list[Point]:
     if tile.men == 0:
         return []
     elif addresses.empty:
+        transformer = Transformer.from_crs(filo_crs(territory), territory_crs(territory), always_xy=True)
         return [
-            Point(np.random.uniform(tile.XSO, tile.XNE), np.random.uniform(tile.YSO, tile.YNE)) for _ in range(tile.men)
+            Point(
+                transformer.transform(
+                    np.random.uniform(tile["XSO"], tile["XNE"]), np.random.uniform(tile["YSO"], tile["YNE"])
+                )
+            )
+            for _ in range(tile.men)
         ]
     else:
         # Tirage des adresses:
@@ -212,12 +221,14 @@ def draw_adresses(tile: pd.Series, addresses: pd.DataFrame) -> list[Point]:
         ]
 
 
-def generate_tile_households(tile: pd.Series, addresses: pd.DataFrame) -> Generator[HouseholdsFeature]:
+def generate_tile_households(
+    tile: pd.Series, addresses: pd.DataFrame, territory: TerritoryCode
+) -> Generator[HouseholdsFeature]:
     """
     Génère une base de ménages d'un carreau
     """
     households = get_households_with_ages(tile)
-    drawn_addresses = draw_adresses(tile, addresses)
+    drawn_addresses = draw_addresses(tile, addresses, territory)
 
     # Le niveau de vie des individus dans le ménage
     # On répartit le total des niveaux de vie entre les ménages
@@ -227,7 +238,6 @@ def generate_tile_households(tile: pd.Series, addresses: pd.DataFrame) -> Genera
 
     for hh, part, addr in zip(households, parts, drawn_addresses, strict=True):
         res: HouseholdsFeature = cast(HouseholdsFeature, hh)
-        # Note: This
         res["NIVEAU_VIE"] = tile.ind_snv * part / norm_parts / hh["SIZE"]
         res["geometry"] = addr
         yield res
@@ -265,17 +275,17 @@ def generate_population(hh: HouseholdsFeature) -> Generator[PopulationFeature]:
 
 
 def generate_households(
-    territory: TerritoryCode = "france",
+    territory: TerritoryCode = "METRO",
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
     tile_households_generator: Callable[
-        [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
+        [pd.Series, pd.DataFrame, TerritoryCode], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
 ) -> Generator[HouseholdsFeature]:
     """
     Args:
         territory (TerritoryCode):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
+            A name of the territory to consider: 'METRO' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
@@ -298,21 +308,21 @@ def generate_households(
             return pd.DataFrame(columns=ban.columns)
 
     for _, row in filo.iterrows():
-        yield from tile_households_generator(row, get_addresses(row))
+        yield from tile_households_generator(row, get_addresses(row), territory)
 
 
 def get_households_gdf(
-    territory: TerritoryCode = "france",
+    territory: TerritoryCode = "METRO",
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
     tile_households_generator: Callable[
-        [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
+        [pd.Series, pd.DataFrame, TerritoryCode], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
 ) -> gpd.GeoDataFrame:
     """
     Args:
         territory (TerritoryCode):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
+            A name of the territory to consider: 'METRO' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
@@ -331,18 +341,18 @@ def get_households_gdf(
 
 
 def get_population_gdf(
-    territory: TerritoryCode = "france",
+    territory: TerritoryCode = "METRO",
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
     tile_households_generator: Callable[
-        [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
+        [pd.Series, pd.DataFrame, TerritoryCode], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
     population_generator: Callable[[HouseholdsFeature], Iterator[PopulationFeature]] = generate_population,
 ) -> gpd.GeoDataFrame:
     """
     Args:
         territory (TerritoryCode):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
+            A name of the territory to consider: 'METRO' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
@@ -363,18 +373,18 @@ def get_population_gdf(
 
 
 def get_households_population_gdf(
-    territory: TerritoryCode = "france",
+    territory: TerritoryCode = "METRO",
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
     tile_households_generator: Callable[
-        [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
+        [pd.Series, pd.DataFrame, TerritoryCode], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
     population_generator: Callable[[HouseholdsFeature], Iterator[PopulationFeature]] = generate_population,
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """
     Args:
         territory (TerritoryCode):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
+            A name of the territory to consider: 'METRO' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
@@ -401,12 +411,12 @@ def get_households_population_gdf(
 
 
 def generate_batched_households(
-    territory: TerritoryCode = "france",
+    territory: TerritoryCode = "METRO",
     batch_size: int = 1000,
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
     tile_households_generator: Callable[
-        [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
+        [pd.Series, pd.DataFrame, TerritoryCode], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
 ) -> Iterator[tuple[HouseholdsFeature, ...]]:
     return batched(
@@ -418,18 +428,18 @@ def generate_batched_households(
 
 
 def get_batched_households_gdf(
-    territory: TerritoryCode = "france",
+    territory: TerritoryCode = "METRO",
     batch_size: int = 1000,
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
     tile_households_generator: Callable[
-        [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
+        [pd.Series, pd.DataFrame, TerritoryCode], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
 ) -> Generator[gpd.GeoDataFrame]:
     """
     Args:
         territory (TerritoryCode):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
+            A name of the territory to consider: 'METRO' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
@@ -452,19 +462,19 @@ def get_batched_households_gdf(
 
 
 def get_batched_population_gdf(
-    territory: TerritoryCode = "france",
+    territory: TerritoryCode = "METRO",
     batch_size: int = 1000,
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
     tile_households_generator: Callable[
-        [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
+        [pd.Series, pd.DataFrame, TerritoryCode], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
     population_generator: Callable[[HouseholdsFeature], Iterator[PopulationFeature]] = generate_population,
 ) -> Generator[gpd.GeoDataFrame]:
     """
     Args:
         territory (TerritoryCode):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
+            A name of the territory to consider: 'METRO' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):
@@ -489,19 +499,19 @@ def get_batched_population_gdf(
 
 
 def get_batched_households_population_gdf(
-    territory: TerritoryCode = "france",
+    territory: TerritoryCode = "METRO",
     batch_size: int = 1000,
     filo_df: gpd.GeoDataFrame | None = None,
     ban_df: pd.DataFrame | None = None,
     tile_households_generator: Callable[
-        [pd.Series, pd.DataFrame], Iterator[HouseholdsFeature]
+        [pd.Series, pd.DataFrame, TerritoryCode], Iterator[HouseholdsFeature]
     ] = generate_tile_households,
     population_generator: Callable[[HouseholdsFeature], Iterator[PopulationFeature]] = generate_population,
 ) -> Generator[tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]]:
     """
     Args:
         territory (TerritoryCode):
-            A name of the territory to consider: 'france' (default), '974' or '972'.
+            A name of the territory to consider: 'METRO' (default), '974' or '972'.
         filo_df (gpd.GeoDataFrame, optional):
             FILO database. Will be (down)loaded if omitted.
         ban_df (pd.DataFrame, optional):

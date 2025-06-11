@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import py7zr
 import requests
-from pyproj import Transformer
 
 from .utils import (
     ADULT_AGE_COLUMNS,
@@ -17,10 +16,7 @@ from .utils import (
     ALL_AGE_LITERAL,
     DATA_DIR,
     MINOR_AGE_COLUMNS,
-    TerritoryCode,
-    filo_crs,
     territory_code,
-    territory_crs,
 )
 
 # URL par défaut du fichier à télécharger
@@ -39,13 +35,16 @@ NUMERIC_COLUMNS: list[str] = ["ind_snv", "men_pauv"]
 
 
 _FILO_territory_filename = {
-    "france": "carreaux_200m_met.gpkg",
+    "METRO": "carreaux_200m_met.gpkg",
     "974": "carreaux_200m_reun.gpkg",
     "972": "carreaux_200m_mart.gpkg",
 }
 
 
-def get_FILO_filename(territory: str | int = "france", dataDir: Path = DATA_DIR) -> Path:
+def get_FILO_filename(territory: str | int = "METRO", dataDir: Path = DATA_DIR) -> Path:
+    """
+    TODO: Document me
+    """
     return dataDir / _FILO_territory_filename[territory_code(territory)]
 
 
@@ -198,8 +197,7 @@ def refine_FILO_tile(s: pd.Series) -> dict[str, Any]:
     return o
 
 
-def refine_FILO(raw_gdf: gpd.GeoDataFrame, territory: str | int = "france") -> gpd.GeoDataFrame:
-    terr_code: TerritoryCode = territory_code(territory)
+def refine_FILO(raw_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     logging.info("Refining FILO...")
     gdf = gpd.GeoDataFrame(geometry=raw_gdf.geometry, index=raw_gdf.index)
     gdf = gdf.join(raw_gdf.apply(refine_FILO_tile, axis=1, result_type="expand").astype(int))
@@ -216,44 +214,25 @@ def refine_FILO(raw_gdf: gpd.GeoDataFrame, territory: str | int = "france") -> g
     # Coordonnées des points NE et SO - le point de référence est le point en bas à gauche
     gdf["tile_id"] = raw_gdf["idcar_200m"]
 
-    e = gdf.tile_id.str.extract("200mN(.*)E(.*)").astype(int)
-    YSO = e[0]
-    XSO = e[1]
-    YNE = YSO + 200
-    XNE = XSO + 200
-
-    transformer = Transformer.from_crs(filo_crs(terr_code), territory_crs(terr_code), always_xy=True)
-    XSO, YSO = transformer.transform(XSO, YSO)
-    XNE, YNE = transformer.transform(XNE, YNE)
-
-    gdf["XSO"] = XSO
-    gdf["YSO"] = YSO
-    gdf["XNE"] = XNE
-    gdf["YNE"] = YNE
+    e = gdf["tile_id"].str.extract("200mN(.*)E(.*)").astype(int)
+    gdf["YSO"] = e[0]
+    gdf["XSO"] = e[1]
+    gdf["YNE"] = gdf["YSO"] + 200
+    gdf["XNE"] = gdf["XSO"] + 200
     logging.info("FILO refinement done.")
     return gdf
 
 
-def coherence_check(tiled_filo: pd.DataFrame):
-    if False:
-        raise Exception("")
-    # TODO
-    # - Perform some sanity check on the output of refine_FILO
-    return None
-
-
-def load_raw_FILO(territory: str | int = "france", dataDir: Path = DATA_DIR):
+def load_raw_FILO(territory: str | int = "METRO", dataDir: Path = DATA_DIR) -> gpd.GeoDataFrame:
     download_extract_FILO()
     file_path = get_FILO_filename(territory, dataDir=dataDir)
     logging.info("Loading FILO data...")
     return gpd.read_file(file_path)
 
 
-def load_FILO(territory: str | int = "france", check_coherence: bool = False, dataDir: Path = DATA_DIR):
-    raw_filo = load_raw_FILO(territory=territory, dataDir=dataDir)
-    refined_filo = refine_FILO(raw_filo, territory=territory)
-    if check_coherence:
-        coherence_check(refined_filo)
+def load_FILO(territory: str | int = "METRO", dataDir: Path = DATA_DIR) -> gpd.GeoDataFrame:
+    raw_filo: gpd.GeoDataFrame = load_raw_FILO(territory=territory, dataDir=dataDir)
+    refined_filo: gpd.GeoDataFrame = refine_FILO(raw_filo)
     return refined_filo
 
 
