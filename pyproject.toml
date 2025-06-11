@@ -15,6 +15,7 @@ dependencies = [
     "types-geopandas",
     "pyyaml",
     "pandas>=2.2.3",
+    "fastparquet",
 ]
 
 [tool.setuptools]
