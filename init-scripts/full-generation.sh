@@ -1,6 +1,6 @@
 #!/bin/bash
 # screen
-# ./init-scripts/full-generation.sh > logs.txt 2>&1
+# ./init-scripts/full-generation.sh > logs.txt 2> err.txt
 # Ctrl-A D
 # tail logs.txt -f
 # Ctrl-C
@@ -46,6 +46,10 @@ rm carreaux_200m_mart.gpkg
 pmtiles convert filo_200m_972.mbtiles filo_200m_972.pmtiles
 mc cp filo_200m_972.pmtiles $S3_PATH/972/filo_200m/filo_200m_972.pmtiles
 rm filo_200m_972.pmtiles
+
+# ...
+
+rm filo_200m_972.mbtiles
 
 
 
