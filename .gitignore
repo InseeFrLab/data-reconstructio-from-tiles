@@ -1,6 +1,7 @@
 # Data directory
 data/
 logs.txt
+docs/build/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
