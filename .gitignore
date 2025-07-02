@@ -2,6 +2,7 @@
 data/
 logs.txt
 docs/build/
+uv.lock
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
